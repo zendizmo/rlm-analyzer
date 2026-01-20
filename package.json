@@ -1,0 +1,106 @@
+{
+  "name": "rlm-analyzer",
+  "version": "1.3.0",
+  "description": "AI-powered code analysis using Recursive Language Models (RLMs). Analyze entire codebases 100x beyond context limits with deep architecture, security, and refactoring analysis.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./models": {
+      "types": "./dist/models.d.ts",
+      "import": "./dist/models.js"
+    },
+    "./config": {
+      "types": "./dist/config.d.ts",
+      "import": "./dist/config.js"
+    },
+    "./types": {
+      "types": "./dist/types.d.ts",
+      "import": "./dist/types.js"
+    },
+    "./advanced-features": {
+      "types": "./dist/advanced-features.d.ts",
+      "import": "./dist/advanced-features.js"
+    },
+    "./context-manager": {
+      "types": "./dist/context-manager.d.ts",
+      "import": "./dist/context-manager.js"
+    }
+  },
+  "bin": {
+    "rlm": "dist/main.js",
+    "rlm-analyzer": "dist/main.js",
+    "rlm-mcp": "dist/mcp-server.js",
+    "rlm-analyzer-mcp": "dist/mcp-server.js"
+  },
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build": "npm run clean && tsc && chmod +x dist/main.js dist/cli.js dist/mcp-server.js",
+    "dev": "tsc --watch",
+    "start": "node dist/cli.js",
+    "test": "node --test",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "ai",
+    "llm",
+    "code-analysis",
+    "static-analysis",
+    "gemini",
+    "recursive-language-models",
+    "rlm",
+    "architecture",
+    "security",
+    "refactoring",
+    "dependencies",
+    "cli",
+    "mcp",
+    "model-context-protocol",
+    "claude-code",
+    "cursor",
+    "codebase-analysis",
+    "ai-tools",
+    "developer-tools",
+    "code-review",
+    "vulnerability-scanner",
+    "token-optimization"
+  ],
+  "author": {
+    "name": "BzLabs",
+    "url": "https://github.com/bzlabs"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/zendizmo/rlm-analyzer.git"
+  },
+  "homepage": "https://github.com/zendizmo/rlm-analyzer#readme",
+  "bugs": {
+    "url": "https://github.com/zendizmo/rlm-analyzer/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@google/genai": "^1.0.0",
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "dotenv": "^16.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "CHANGELOG.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  }
+}

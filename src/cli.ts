@@ -251,6 +251,7 @@ function parseArgs(args: string[]): {
     verbose: boolean;
     json: boolean;
     help: boolean;
+    version: boolean;
     output: string | null;
   };
 } {
@@ -263,6 +264,7 @@ function parseArgs(args: string[]): {
     verbose: false,
     json: false,
     help: false,
+    version: false,
     output: null as string | null,
   };
 
@@ -276,6 +278,8 @@ function parseArgs(args: string[]): {
 
     if (arg === '--help' || arg === '-h') {
       options.help = true;
+    } else if (arg === '--version' || arg === '-V') {
+      options.version = true;
     } else if (arg === '--verbose' || arg === '-v') {
       options.verbose = true;
     } else if (arg === '--json') {
@@ -598,6 +602,12 @@ async function testConnection(model: string): Promise<void> {
 export async function runCli(): Promise<void> {
   const args = process.argv.slice(2);
   const { command, target, options } = parseArgs(args);
+
+  // Show version
+  if (options.version) {
+    console.log('rlm-analyzer v1.3.2');
+    process.exit(0);
+  }
 
   // Show help
   if (options.help || !command) {

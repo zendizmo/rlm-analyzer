@@ -13,87 +13,82 @@ import type { RLMConfig } from './types.js';
  * Optimized for token efficiency via context compression
  */
 export const CODE_ANALYSIS_PROMPT = `You are an expert code analyst using Recursive Language Models (RLMs).
-Your task is to analyze codebases by writing and executing Python code, delegating complex analysis to sub-LLMs.
+Your task is to analyze codebases by writing and executing JavaScript code, delegating complex analysis to sub-LLMs.
 
 ## Environment Variables
-- \`file_index\`: dict mapping file paths to their contents
-- \`files\`: list of all file paths
+- \`file_index\`: object mapping file paths to their contents
+- \`files\`: array of all file paths
 
 ## Available Functions
 - \`print(x)\`: Output text or data
-- \`llm_query(prompt)\`: **KEY FEATURE** - Delegate analysis to a sub-LLM. Use this to analyze individual files or answer specific questions about code.
+- \`llm_query(prompt)\`: **KEY FEATURE** - Delegate analysis to a sub-LLM (async, returns string). Use this to analyze individual files.
 - \`FINAL("answer")\`: **REQUIRED** - Call this with your complete answer when done
 
 ## CRITICAL: You MUST call FINAL() within 5 turns with your complete answer!
 
-## Context Efficiency (Token Optimization)
-To save tokens and stay within context limits:
-- Keep llm_query() prompts focused and specific
-- Summarize findings as you go rather than storing raw output
-- Use slicing for large files: \`content[:2000]\` instead of full content
+## Code Rules - IMPORTANT!
+- Write **JavaScript** code, NOT Python
+- Use \`await\` with llm_query(): \`const result = await llm_query("...")\`
+- Use template literals: \`\\\`Hello \${name}\\\`\` instead of f-strings
+- Use \`.slice(0, 2000)\` instead of \`[:2000]\`
+- Use \`.length\` instead of \`len()\`
+- Use \`.includes()\` instead of \`in\`
 
 ## The Power of Sub-LLM Calls
 The \`llm_query()\` function is your most powerful tool. Use it to:
-- Analyze individual files: \`analysis = llm_query(f"Analyze this TypeScript file: {code}")\`
-- Answer specific questions: \`answer = llm_query(f"What design patterns are used here? {code}")\`
-- Summarize complex code: \`summary = llm_query(f"Summarize the main functionality: {code}")\`
+- Analyze files: \`const analysis = await llm_query(\\\`Analyze: \${code}\\\`)\`
+- Answer questions: \`const answer = await llm_query(\\\`What patterns? \${code}\\\`)\`
 
 ## Recommended Workflow
-1. **Explore**: \`print(files)\` to see available files
-2. **Identify key files**: Look for entry points (index, main, app), configs (package.json, tsconfig), and core modules
-3. **Delegate analysis**: Use \`llm_query()\` to analyze 3-5 key files - this gives much better results than just reading!
+1. **Explore**: \`print(files.slice(0, 20))\` to see available files
+2. **Identify key files**: Look for entry points, configs, core modules
+3. **Delegate analysis**: Use \`await llm_query()\` to analyze 3-5 key files
 4. **Synthesize**: Combine the sub-LLM analyses into your final answer
 5. **FINAL()**: Call with your comprehensive answer
 
-## Example - Efficient Use of Sub-LLMs
-\`\`\`python
-# Explore the codebase structure
-print(f"Total files: {len(files)}")
-print(files[:15])
+## Example - Correct JavaScript Code
+\`\`\`javascript
+// Explore the codebase structure
+print(\`Total files: \${files.length}\`);
+print(files.slice(0, 15));
 
-# Make focused sub-LLM queries (results are auto-compressed for efficiency)
-entry_info = llm_query(f"List main exports and purpose of this entry point (be concise):\\n{file_index['src/index.ts'][:2000]}")
-print("Entry:", entry_info[:300])
+// Make focused sub-LLM queries
+const entryFile = file_index['src/index.ts'] || file_index['src/index.js'] || '';
+const entry_info = await llm_query(\`List main exports and purpose (be concise):\\n\${entryFile.slice(0, 2000)}\`);
+print("Entry:", entry_info.slice(0, 300));
 
-tech_stack = llm_query(f"List tech stack and key dependencies (bullet points):\\n{file_index['package.json']}")
-print("Stack:", tech_stack[:300])
+const pkgJson = file_index['package.json'] || '{}';
+const tech_stack = await llm_query(\`List tech stack and key dependencies (bullet points):\\n\${pkgJson}\`);
+print("Stack:", tech_stack.slice(0, 300));
 
-arch_patterns = llm_query(f"Identify architecture patterns (be brief):\\n{file_index['src/core.ts'][:2000]}")
-print("Arch:", arch_patterns[:300])
+// Find a core file
+const coreFile = files.find(f => f.includes('core') || f.includes('main') || f.includes('app'));
+if (coreFile) {
+  const arch = await llm_query(\`Identify architecture patterns (brief):\\n\${file_index[coreFile].slice(0, 2000)}\`);
+  print("Arch:", arch.slice(0, 300));
+}
 
-# Synthesize into concise final answer
-FINAL(f"""
-## Codebase Summary
+// Synthesize final answer
+FINAL(\`## Codebase Summary
 
-**Purpose:** {entry_info[:200]}
+**Purpose:** \${entry_info.slice(0, 200)}
 
-**Tech Stack:** {tech_stack[:200]}
-
-**Architecture:** {arch_patterns[:200]}
+**Tech Stack:** \${tech_stack.slice(0, 200)}
 
 ## Key Insights
-- [Add key insights based on analysis]
-""")
+- Based on the sub-LLM analyses above
+\`);
 \`\`\`
 
 ## MANDATORY Rules
-- **YOU MUST USE llm_query()** before calling FINAL() - this is enforced!
+- **YOU MUST USE await llm_query()** before calling FINAL() - this is enforced!
+- Write JavaScript, NOT Python!
 - Minimum llm_query() calls required:
   - 200+ files: 5 calls
-  - 100+ files: 4 calls  
+  - 100+ files: 4 calls
   - 50+ files: 3 calls
   - 20+ files: 2 calls
 - FINAL() will be REJECTED if you don't make enough llm_query() calls
-- Use slicing for large content: \`content[:3000]\`
-- Combine sub-LLM results for comprehensive analysis
-
-## Scaling for Large Codebases
-For codebases with many files:
-1. Analyze entry points (index, main, App)
-2. Analyze package.json/config for tech stack
-3. Analyze 2-3 core modules/services
-4. Analyze types/interfaces for data models
-5. Analyze at least one page/component for UI patterns
 
 Make MULTIPLE llm_query() calls - this is how you get quality analysis!`;
 
@@ -224,17 +219,16 @@ File list:
 ## Your Task
 ${query}
 
-## Instructions
-1. First, explore the file list to identify key files (entry points, configs, core modules)
-2. **Make ${recommendedCalls} llm_query() calls** to analyze different aspects:
+## Instructions (Write JavaScript, NOT Python!)
+1. First, explore: \`print(files.slice(0, 20))\`
+2. **Make ${recommendedCalls} await llm_query() calls** to analyze different aspects:
    - Entry point / main app file
    - package.json / config files
    - Core services or modules
-   - Types / interfaces
-   - Sample pages / components
 3. Synthesize the sub-LLM analyses into a comprehensive final answer
 4. Call FINAL("your answer") with your complete analysis
 
-🚫 WARNING: FINAL() will be REJECTED if you don't make at least ${recommendedCalls} llm_query() calls!
-This is enforced - you cannot skip sub-LLM analysis.`;
+Remember: Use \`await llm_query(...)\`, template literals \`\\\`...\\\`\`, and \`.slice(0, n)\`
+
+🚫 WARNING: FINAL() will be REJECTED if you don't make at least ${recommendedCalls} llm_query() calls!`;
 }

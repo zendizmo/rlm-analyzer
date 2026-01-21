@@ -32,6 +32,17 @@ function calculateMaxTurns(fileCount: number): number {
 }
 
 /**
+ * Calculate timeout based on file count
+ * Larger codebases need more time
+ */
+function calculateTimeout(fileCount: number): number {
+  if (fileCount >= 200) return 900000;  // 15 minutes
+  if (fileCount >= 100) return 600000;  // 10 minutes
+  if (fileCount >= 50) return 450000;   // 7.5 minutes
+  return 300000;                         // 5 minutes default
+}
+
+/**
  * Load files from a directory
  */
 export function loadFiles(
@@ -113,12 +124,14 @@ export async function analyzeCodebase(
 
   const query = options.query || getAnalysisPrompt(analysisType);
 
-  // Calculate smart max turns based on codebase size, or use provided value
+  // Calculate smart max turns and timeout based on codebase size
   const maxTurns = options.maxTurns || calculateMaxTurns(fileCount);
+  const timeoutMs = calculateTimeout(fileCount);
 
   const orchestratorConfig = {
     ...(options.model ? { rootModel: options.model, subModel: options.model } : {}),
     maxTurns,
+    timeoutMs,
   };
   const orchestrator = new RLMOrchestrator(orchestratorConfig, options.verbose);
   const result = await orchestrator.processQuery(

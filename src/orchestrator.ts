@@ -171,6 +171,18 @@ export class RLMOrchestrator {
     // Initialize executor with files
     this.executor.initialize(context.files);
 
+    // Set up real-time sub-LLM progress callback
+    this.executor.setOnSubLLMCall((count: number) => {
+      if (onProgress) {
+        onProgress({
+          turn: turns.length,
+          subCallCount: count,
+          phase: 'sub-llm',
+          elapsedMs: Date.now() - startTime,
+        });
+      }
+    });
+
     // Reset context manager and advanced features for new query
     this.contextManager.reset();
     this.contextRotDetector.reset();
@@ -312,6 +324,9 @@ export class RLMOrchestrator {
           const preview = (executionResult || executionError || '').slice(0, 150);
           console.log(`Output: ${preview}...`);
         }
+
+        // Report progress after execution (sub-LLM count may have changed)
+        reportProgress(turn, 'analyzing');
 
         history.push({ role: 'model', parts: [{ text: response }] });
         history.push({

@@ -38,9 +38,17 @@ export class RLMExecutor {
   private maxSubCalls: number;
   private finalAnswer: string | null = null;
   private subLLMCallback: ((query: string) => Promise<string>) | null = null;
+  private onSubLLMCall: ((count: number) => void) | null = null;
 
   constructor(maxSubCalls = 15) {
     this.maxSubCalls = maxSubCalls;
+  }
+
+  /**
+   * Set callback for when a sub-LLM call is made (for progress tracking)
+   */
+  setOnSubLLMCall(callback: (count: number) => void): void {
+    this.onSubLLMCall = callback;
   }
 
   /**
@@ -241,6 +249,10 @@ export class RLMExecutor {
           throw new Error('Sub-LLM callback not configured');
         }
         this.subCallCount++;
+        // Notify progress tracker of sub-LLM call
+        if (this.onSubLLMCall) {
+          this.onSubLLMCall(this.subCallCount);
+        }
         return this.subLLMCallback(query);
       },
 
@@ -266,6 +278,10 @@ export class RLMExecutor {
           throw new Error('Sub-LLM callback not configured');
         }
         this.subCallCount++;
+        // Notify progress tracker of sub-LLM call
+        if (this.onSubLLMCall) {
+          this.onSubLLMCall(this.subCallCount);
+        }
         return this.subLLMCallback(query);
       },
 

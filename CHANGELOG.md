@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - `--version` / `-V` flag to display CLI version
+- Real-time Sub-LLM progress callback (`onSubLLMCall`) for live counter updates
+- Dynamic timeout based on codebase size (up to 15 min for 200+ files)
+
+### Fixed
+- **Major: Sub-LLM calls now work properly** - Switched from Python to JavaScript prompts
+  - Previous Python-to-JS conversion was causing syntax errors
+  - Model now generates native JavaScript code that executes correctly
+  - Aham test: 0 Sub-LLM calls → 7 Sub-LLM calls, 303s → 96s (3x faster)
 
 ---
 

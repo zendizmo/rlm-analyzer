@@ -605,7 +605,7 @@ export async function runCli(): Promise<void> {
 
   // Show version
   if (options.version) {
-    console.log('rlm-analyzer v1.3.2');
+    console.log('rlm-analyzer v1.3.3');
     process.exit(0);
   }
 

@@ -192,7 +192,7 @@ const TOOLS = [
 
 // Create server
 const server = new Server(
-  { name: 'rlm-analyzer', version: '1.3.2' },
+  { name: 'rlm-analyzer', version: '1.3.3' },
   { capabilities: { tools: {} } }
 );
 

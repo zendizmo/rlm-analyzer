@@ -1,6 +1,6 @@
 {
   "name": "rlm-analyzer",
-  "version": "1.3.2",
+  "version": "1.3.3",
   "description": "AI-powered code analysis using Recursive Language Models (RLMs). Analyze entire codebases 100x beyond context limits with deep architecture, security, and refactoring analysis.",
   "type": "module",
   "main": "dist/index.js",

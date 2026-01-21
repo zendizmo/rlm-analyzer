@@ -5,6 +5,45 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.2] - 2026-01-20
+
+### Added
+- **Real-time Progress Indicator**: CLI now shows live progress during analysis
+  - Animated spinner with current phase (Initializing, Analyzing, Executing code, Sub-LLM query, Finalizing)
+  - Turn counter updated in real-time
+  - **Sub-LLM call counter** - now updates live as sub-LLM calls happen (not just at the end)
+  - Elapsed time display
+- **Markdown Output**: Save analysis results to markdown files
+  - New `--output, -o <file>` option (e.g., `rlm summary -o rlm-context.md`)
+  - Generates formatted markdown report with metadata, results, and file list
+  - Perfect for documentation or sharing analysis results
+- **RLMProgress callback**: New `onProgress` callback option for programmatic progress tracking
+  - Added `RLMProgress` type with `turn`, `subCallCount`, `phase`, and `elapsedMs`
+  - Useful for building custom progress UIs
+- `subCallCount` now included in `RLMTurn` records for tracking during analysis
+
+### Fixed
+- **MCP Server via npx**: Fixed critical bug where MCP server wouldn't start when run via `npx rlm-analyzer-mcp`
+  - The issue was that symlinks created by npx in `.bin/` weren't being recognized as the main module
+  - Now uses `realpathSync()` to resolve symlinks and properly detect the main module
+  - Both `npx rlm-analyzer-mcp` and direct `node dist/mcp-server.js` now work correctly
+- **Max turns exceeded for large codebases**: Fixed "Max turns (10) exceeded" error on larger projects
+  - Max turns now dynamically calculated based on file count:
+    - 200+ files → 25 turns
+    - 100+ files → 20 turns
+    - 50+ files → 15 turns
+    - 20+ files → 12 turns
+    - Default → 10 turns
+  - Can also be overridden via `maxTurns` option in programmatic API
+
+### Improved
+- Better user experience during long-running analyses
+- Clear visual feedback on analysis progress
+- Progress visible by default (no need for `--verbose` flag)
+- JSON output mode (`--json`) disables progress for clean output
+
+---
+
 ## [1.3.0] - 2026-01-19
 
 ### Added

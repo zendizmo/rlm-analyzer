@@ -16,6 +16,8 @@
  * }
  */
 
+import { fileURLToPath } from 'url';
+import { realpathSync } from 'fs';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
@@ -190,7 +192,7 @@ const TOOLS = [
 
 // Create server
 const server = new Server(
-  { name: 'rlm-analyzer', version: '1.1.0' },
+  { name: 'rlm-analyzer', version: '1.3.2' },
   { capabilities: { tools: {} } }
 );
 
@@ -383,9 +385,33 @@ export async function startMcpServer(): Promise<void> {
   console.error('RLM Analyzer MCP server running on stdio');
 }
 
-// Run directly if this file is executed
-const isDirectRun = process.argv[1]?.endsWith('mcp-server.js') || process.argv[1]?.endsWith('mcp-server.ts');
-if (isDirectRun) {
+// Auto-start when run as a script (via node, npx, or bin symlink)
+// Use import.meta.url to detect if we're the main module
+function isMainModule(): boolean {
+  try {
+    const scriptPath = process.argv[1];
+    if (!scriptPath) return false;
+
+    // Get the real path of this file
+    const thisFile = fileURLToPath(import.meta.url);
+
+    // Get real paths to resolve symlinks (npx creates symlinks in .bin/)
+    const realScript = realpathSync(scriptPath);
+    const realThis = realpathSync(thisFile);
+
+    return realScript === realThis;
+  } catch {
+    // Fallback: check if script path contains our identifiers
+    const scriptPath = process.argv[1] || '';
+    return (
+      scriptPath.endsWith('mcp-server.js') ||
+      scriptPath.endsWith('rlm-mcp') ||
+      scriptPath.endsWith('rlm-analyzer-mcp')
+    );
+  }
+}
+
+if (isMainModule()) {
   startMcpServer().catch((error) => {
     console.error('Failed to start MCP server:', error);
     process.exit(1);

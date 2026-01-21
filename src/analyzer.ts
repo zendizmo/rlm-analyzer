@@ -20,6 +20,18 @@ export const DEFAULT_MAX_FILE_SIZE = 100_000;
 export const DEFAULT_ANALYSIS_TYPE = 'summary' as const;
 
 /**
+ * Calculate smart max turns based on file count
+ * Larger codebases need more turns to fully analyze
+ */
+function calculateMaxTurns(fileCount: number): number {
+  if (fileCount >= 200) return 25;  // Very large codebase
+  if (fileCount >= 100) return 20;  // Large codebase
+  if (fileCount >= 50) return 15;   // Medium codebase
+  if (fileCount >= 20) return 12;   // Small codebase
+  return 10;                         // Tiny codebase
+}
+
+/**
  * Load files from a directory
  */
 export function loadFiles(
@@ -101,12 +113,19 @@ export async function analyzeCodebase(
 
   const query = options.query || getAnalysisPrompt(analysisType);
 
-  const orchestratorConfig = options.model ? { rootModel: options.model, subModel: options.model } : {};
+  // Calculate smart max turns based on codebase size, or use provided value
+  const maxTurns = options.maxTurns || calculateMaxTurns(fileCount);
+
+  const orchestratorConfig = {
+    ...(options.model ? { rootModel: options.model, subModel: options.model } : {}),
+    maxTurns,
+  };
   const orchestrator = new RLMOrchestrator(orchestratorConfig, options.verbose);
   const result = await orchestrator.processQuery(
     query,
     { files, variables: {}, mode: 'code-analysis' },
-    options.onTurnComplete
+    options.onTurnComplete,
+    options.onProgress
   );
 
   return {

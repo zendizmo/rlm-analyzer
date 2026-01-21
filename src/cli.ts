@@ -45,7 +45,8 @@ import {
   AVAILABLE_MODELS,
   getAliasesDisplay,
 } from './models.js';
-import type { RLMTurn } from './types.js';
+import type { RLMTurn, RLMProgress } from './types.js';
+import * as fs from 'fs';
 
 // ANSI colors
 const colors = {
@@ -59,6 +60,69 @@ const colors = {
   magenta: '\x1b[35m',
   cyan: '\x1b[36m',
 };
+
+// Progress spinner frames
+const spinnerFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+
+// Phase display names
+const phaseNames: Record<RLMProgress['phase'], string> = {
+  'initializing': 'Initializing',
+  'analyzing': 'Analyzing',
+  'executing': 'Executing code',
+  'sub-llm': 'Sub-LLM query',
+  'finalizing': 'Finalizing',
+};
+
+/**
+ * Progress tracker for real-time CLI feedback
+ */
+class ProgressTracker {
+  private turnCount = 0;
+  private subLLMCount = 0;
+  private spinnerIndex = 0;
+  private spinnerInterval: ReturnType<typeof setInterval> | null = null;
+  private startTime = Date.now();
+  private currentPhase: RLMProgress['phase'] = 'initializing';
+
+  constructor() {}
+
+  start(): void {
+    this.startTime = Date.now();
+    this.spinnerInterval = setInterval(() => {
+      this.render();
+      this.spinnerIndex = (this.spinnerIndex + 1) % spinnerFrames.length;
+    }, 100);
+    this.render();
+  }
+
+  stop(): void {
+    if (this.spinnerInterval) {
+      clearInterval(this.spinnerInterval);
+      this.spinnerInterval = null;
+    }
+    // Clear the progress line
+    process.stdout.write('\r\x1b[K');
+  }
+
+  private render(): void {
+    const elapsed = ((Date.now() - this.startTime) / 1000).toFixed(1);
+    const spinner = spinnerFrames[this.spinnerIndex];
+    const phaseName = phaseNames[this.currentPhase];
+    const status = `${colors.cyan}${spinner}${colors.reset} ${colors.bold}${phaseName}${colors.reset} | Turn: ${colors.yellow}${this.turnCount}${colors.reset} | Sub-LLM: ${colors.green}${this.subLLMCount}${colors.reset} | Time: ${colors.dim}${elapsed}s${colors.reset}`;
+
+    // Overwrite current line
+    process.stdout.write(`\r\x1b[K${status}`);
+  }
+
+  /**
+   * Update from RLMProgress callback - this is the primary update method
+   */
+  update(progress: RLMProgress): void {
+    this.turnCount = progress.turn;
+    this.subLLMCount = progress.subCallCount;
+    this.currentPhase = progress.phase;
+  }
+}
 
 function log(message: string, color?: keyof typeof colors): void {
   if (color) {
@@ -112,6 +176,7 @@ ${colors.bold}Options:${colors.reset}
   --dir, -d <path>   Directory to analyze (default: current directory)
   --model, -m <name> Model to use (default: ${defaultModel})
                      Can use aliases: fast, smart, pro, flash
+  --output, -o <file> Save results to markdown file (e.g., rlm-context.md)
   --verbose, -v      Show detailed turn-by-turn output
   --json             Output results as JSON
   --help, -h         Show this help message
@@ -148,6 +213,9 @@ ${colors.bold}Examples:${colors.reset}
   ${colors.dim}# Ask a custom question${colors.reset}
   rlm ask "How does authentication work in this codebase?"
 
+  ${colors.dim}# Save analysis to markdown file${colors.reset}
+  rlm summary --output rlm-context.md
+
   ${colors.dim}# Configure API key${colors.reset}
   rlm config YOUR_GEMINI_API_KEY
 
@@ -183,6 +251,7 @@ function parseArgs(args: string[]): {
     verbose: boolean;
     json: boolean;
     help: boolean;
+    output: string | null;
   };
 } {
   // Get default model dynamically
@@ -194,6 +263,7 @@ function parseArgs(args: string[]): {
     verbose: false,
     json: false,
     help: false,
+    output: null as string | null,
   };
 
   let command = '';
@@ -224,6 +294,13 @@ function parseArgs(args: string[]): {
       modelFromCLI = arg.slice(8);
     } else if (arg.startsWith('-m=')) {
       modelFromCLI = arg.slice(3);
+    } else if (arg === '--output' || arg === '-o') {
+      i++;
+      options.output = args[i] || 'rlm-context.md';
+    } else if (arg.startsWith('--output=')) {
+      options.output = arg.slice(9);
+    } else if (arg.startsWith('-o=')) {
+      options.output = arg.slice(3);
     } else if (!command) {
       command = arg;
     } else if (!target) {
@@ -245,7 +322,9 @@ function createTurnCallback(verbose: boolean): ((turn: RLMTurn) => void) | undef
   if (!verbose) return undefined;
 
   return (turn: RLMTurn) => {
-    log(`\n--- Turn ${turn.turn} ---`, 'dim');
+    // Clear progress line first
+    process.stdout.write('\r\x1b[K');
+    log(`\n--- Turn ${turn.turn} (Sub-LLM: ${turn.subCallCount || 0}) ---`, 'dim');
     if (turn.code) {
       log('Executing code...', 'yellow');
     }
@@ -259,20 +338,34 @@ function createTurnCallback(verbose: boolean): ((turn: RLMTurn) => void) | undef
   };
 }
 
+function createProgressCallback(progressTracker: ProgressTracker): (progress: RLMProgress) => void {
+  return (progress: RLMProgress) => {
+    progressTracker.update(progress);
+  };
+}
+
 async function runCommand(
   command: string,
   target: string | undefined,
-  options: { dir: string; model: string; verbose: boolean; json: boolean }
+  options: { dir: string; model: string; verbose: boolean; json: boolean; output: string | null }
 ): Promise<void> {
   const startTime = Date.now();
 
   log(`\nAnalyzing: ${options.dir}`, 'dim');
   log(`Model: ${options.model}`, 'dim');
   log(`Command: ${command}${target ? ` ${target}` : ''}`, 'dim');
+  if (options.output) {
+    log(`Output: ${options.output}`, 'dim');
+  }
   log('', 'reset');
 
+  // Create progress tracker (always show progress unless outputting JSON)
+  const progressTracker = options.json ? undefined : new ProgressTracker();
+  progressTracker?.start();
+
   const onTurnComplete = createTurnCallback(options.verbose);
-  const analysisOpts = { verbose: options.verbose, onTurnComplete, model: options.model };
+  const onProgress = progressTracker ? createProgressCallback(progressTracker) : undefined;
+  const analysisOpts = { verbose: options.verbose, onTurnComplete, onProgress, model: options.model };
 
   let result;
 
@@ -340,6 +433,9 @@ async function runCommand(
 
   const duration = ((Date.now() - startTime) / 1000).toFixed(1);
 
+  // Stop progress tracker
+  progressTracker?.stop();
+
   if (options.json) {
     console.log(JSON.stringify(result, null, 2));
     return;
@@ -371,6 +467,71 @@ async function runCommand(
   log(`Turns: ${result.turns.length}`, 'dim');
   log(`Sub-LLM calls: ${result.subCallCount}`, 'dim');
   log(`Time: ${duration}s`, 'dim');
+
+  // Save to markdown file if output option specified
+  if (options.output) {
+    const outputPath = path.isAbsolute(options.output) ? options.output : path.join(options.dir, options.output);
+    const markdown = generateMarkdownReport(command, target, options.dir, result, duration);
+    try {
+      fs.writeFileSync(outputPath, markdown, 'utf-8');
+      log(`\n✓ Results saved to: ${outputPath}`, 'green');
+    } catch (err) {
+      log(`\n✗ Failed to save results: ${err instanceof Error ? err.message : String(err)}`, 'red');
+    }
+  }
+}
+
+/**
+ * Generate a markdown report from analysis results
+ */
+function generateMarkdownReport(
+  command: string,
+  target: string | undefined,
+  directory: string,
+  result: { success: boolean; answer: string | null; filesAnalyzed: string[]; turns: RLMTurn[]; subCallCount: number; error?: string },
+  duration: string
+): string {
+  const timestamp = new Date().toISOString().split('T')[0];
+  const dirName = path.basename(directory);
+
+  let md = `# RLM Analysis: ${dirName}\n\n`;
+  md += `> Generated by [RLM Analyzer](https://github.com/zendizmo/rlm-analyzer) on ${timestamp}\n\n`;
+
+  md += `## Analysis Details\n\n`;
+  md += `| Property | Value |\n`;
+  md += `|----------|-------|\n`;
+  md += `| Command | \`${command}${target ? ` ${target}` : ''}\` |\n`;
+  md += `| Directory | \`${directory}\` |\n`;
+  md += `| Files Analyzed | ${result.filesAnalyzed.length} |\n`;
+  md += `| Turns | ${result.turns.length} |\n`;
+  md += `| Sub-LLM Calls | ${result.subCallCount} |\n`;
+  md += `| Duration | ${duration}s |\n`;
+  md += `| Status | ${result.success ? '✅ Success' : '❌ ' + (result.error || 'Incomplete')} |\n\n`;
+
+  if (result.success && result.answer) {
+    md += `## Analysis Result\n\n`;
+    md += result.answer + '\n\n';
+  } else if (result.error) {
+    md += `## Error\n\n`;
+    md += `\`\`\`\n${result.error}\n\`\`\`\n\n`;
+  }
+
+  // Add file list (collapsed for large codebases)
+  if (result.filesAnalyzed.length > 0) {
+    md += `## Files Analyzed\n\n`;
+    if (result.filesAnalyzed.length > 20) {
+      md += `<details>\n<summary>Show ${result.filesAnalyzed.length} files</summary>\n\n`;
+    }
+    md += `\`\`\`\n${result.filesAnalyzed.join('\n')}\n\`\`\`\n`;
+    if (result.filesAnalyzed.length > 20) {
+      md += `\n</details>\n`;
+    }
+    md += '\n';
+  }
+
+  md += `---\n*Analysis performed with RLM Analyzer v1.3.1*\n`;
+
+  return md;
 }
 
 /**

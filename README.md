@@ -117,6 +117,7 @@ rlm ask "How does authentication work?"
 |--------|-------------|
 | `--dir, -d <path>` | Directory to analyze (default: current) |
 | `--model, -m <name>` | Model to use (see [Model Configuration](#model-configuration)) |
+| `--output, -o <file>` | Save results to a markdown file |
 | `--verbose, -v` | Show detailed turn-by-turn output |
 | `--json` | Output results as JSON |
 | `--help, -h` | Show help |
@@ -141,6 +142,9 @@ rlm ask "What design patterns are used in this codebase?"
 
 # Get JSON output for scripting
 rlm summary --json > analysis.json
+
+# Save analysis to a markdown file
+rlm summary -o rlm-context.md
 
 # Verbose mode to see sub-LLM calls and compression
 rlm security -v

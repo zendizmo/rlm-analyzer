@@ -47,6 +47,20 @@ export interface RLMTurn {
   error: string | null;
   /** Timestamp */
   timestamp: number;
+  /** Current sub-LLM call count (for progress tracking) */
+  subCallCount?: number;
+}
+
+/** Progress update for real-time feedback */
+export interface RLMProgress {
+  /** Current turn number */
+  turn: number;
+  /** Total sub-LLM calls made so far */
+  subCallCount: number;
+  /** Current phase of analysis */
+  phase: 'initializing' | 'analyzing' | 'executing' | 'sub-llm' | 'finalizing';
+  /** Elapsed time in milliseconds */
+  elapsedMs: number;
 }
 
 /** Token savings statistics from context compression */
@@ -89,10 +103,16 @@ export interface CodeAnalysisOptions {
   analysisType?: AnalysisType;
   /** Callback for turn updates */
   onTurnComplete?: (turn: RLMTurn) => void;
+  /** Callback for progress updates (called frequently with current stats) */
+  onProgress?: (progress: RLMProgress) => void;
   /** Verbose output */
   verbose?: boolean;
   /** Gemini model to use */
   model?: string;
+  /** Output file path for saving results (e.g., 'rlm-context.md') */
+  outputFile?: string;
+  /** Maximum turns before forcing completion (default: auto-calculated based on codebase size) */
+  maxTurns?: number;
 }
 
 export interface CodeAnalysisResult extends RLMResult {

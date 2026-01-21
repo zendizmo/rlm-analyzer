@@ -15,6 +15,7 @@ import type {
   RLMContext,
   RLMResult,
   RLMTurn,
+  RLMProgress,
 } from './types.js';
 import { RLMExecutor } from './executor.js';
 import { getAIClient } from './config.js';
@@ -147,10 +148,25 @@ export class RLMOrchestrator {
   async processQuery(
     query: string,
     context: RLMContext,
-    onTurnComplete?: (turn: RLMTurn) => void
+    onTurnComplete?: (turn: RLMTurn) => void,
+    onProgress?: (progress: RLMProgress) => void
   ): Promise<RLMResult> {
     const startTime = Date.now();
     const turns: RLMTurn[] = [];
+
+    // Helper to report progress
+    const reportProgress = (turn: number, phase: RLMProgress['phase']) => {
+      if (onProgress) {
+        onProgress({
+          turn,
+          subCallCount: this.executor.getSubCallCount(),
+          phase,
+          elapsedMs: Date.now() - startTime,
+        });
+      }
+    };
+
+    reportProgress(0, 'initializing');
 
     // Initialize executor with files
     this.executor.initialize(context.files);
@@ -164,6 +180,9 @@ export class RLMOrchestrator {
 
     // Set up sub-LLM callback with adaptive compression
     this.executor.setSubLLMCallback(async (subQuery: string) => {
+      // Report sub-LLM phase
+      reportProgress(turns.length, 'sub-llm');
+
       if (this.verbose) {
         console.log(`  [Sub-LLM] ${subQuery.slice(0, 60)}...`);
       }
@@ -216,6 +235,9 @@ export class RLMOrchestrator {
       if (this.verbose) {
         console.log(`\n--- Turn ${turn} ---`);
       }
+
+      // Report progress at start of each turn
+      reportProgress(turn, 'analyzing');
 
       // Build optimized history (applies sliding window compression)
       const optimizedHistory = this.enableContextCompression
@@ -272,6 +294,9 @@ export class RLMOrchestrator {
       let executionError: string | null = null;
 
       if (hasCode) {
+        // Report executing phase
+        reportProgress(turn, 'executing');
+
         if (this.verbose) {
           console.log('Executing code...');
         }
@@ -308,7 +333,7 @@ export class RLMOrchestrator {
         });
       }
 
-      // Create turn record
+      // Create turn record with current sub-LLM count
       const turnRecord: RLMTurn = {
         turn,
         response,
@@ -316,6 +341,7 @@ export class RLMOrchestrator {
         executionResult,
         error: executionError,
         timestamp: Date.now(),
+        subCallCount: this.executor.getSubCallCount(),
       };
       turns.push(turnRecord);
 

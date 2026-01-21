@@ -113,6 +113,8 @@ export interface CodeAnalysisOptions {
   outputFile?: string;
   /** Maximum turns before forcing completion (default: auto-calculated based on codebase size) */
   maxTurns?: number;
+  /** Enable web grounding to verify package versions in security recommendations (default: false) */
+  enableWebGrounding?: boolean;
 }
 
 export interface CodeAnalysisResult extends RLMResult {

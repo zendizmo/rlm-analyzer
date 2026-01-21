@@ -12,6 +12,7 @@ import type {
 import { CODE_EXTENSIONS, IGNORE_DIRS } from './types.js';
 import { RLMOrchestrator } from './orchestrator.js';
 import { getAnalysisPrompt } from './prompts.js';
+import { verifySecurityRecommendations, appendGroundingSources } from './grounding.js';
 
 /** Default maximum file size in bytes (100KB) */
 export const DEFAULT_MAX_FILE_SIZE = 100_000;
@@ -180,17 +181,43 @@ export async function analyzeDependencies(
 
 /**
  * Analyze security
+ * Optionally uses web grounding to verify package version recommendations
  */
 export async function analyzeSecurity(
   directory: string,
   options: Partial<CodeAnalysisOptions> = {}
 ): Promise<CodeAnalysisResult> {
-  return analyzeCodebase({
+  const result = await analyzeCodebase({
     ...options,
     directory,
     analysisType: 'security',
     query: getAnalysisPrompt('security'),
   });
+
+  // If web grounding is enabled and we have an answer, verify package versions
+  if (options.enableWebGrounding && result.success && result.answer) {
+    if (options.verbose) {
+      console.log('\n[Grounding] Verifying security recommendations with web search...');
+    }
+
+    const groundingResult = await verifySecurityRecommendations(
+      result.answer,
+      options.verbose
+    );
+
+    if (groundingResult.success && groundingResult.enhancedAnswer !== result.answer) {
+      // Replace with grounded answer and add sources
+      result.answer = appendGroundingSources(groundingResult.enhancedAnswer, groundingResult);
+
+      if (options.verbose) {
+        console.log(`[Grounding] Enhanced with ${groundingResult.sources.length} sources`);
+      }
+    } else if (!groundingResult.success && options.verbose) {
+      console.log(`[Grounding] Warning: ${groundingResult.error}`);
+    }
+  }
+
+  return result;
 }
 
 /**

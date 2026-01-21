@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.4] - 2026-01-20
+
+### Added
+- **Web Grounding for Security Analysis**: Use Google Search to verify package version recommendations
+  - New `--grounding` / `-g` CLI flag for security analysis
+  - Automatically verifies and updates package version numbers using real-time web data
+  - Adds source URLs to recommendations for transparency
+  - Programmatic API: `enableWebGrounding: true` option in `analyzeSecurity()`
+- New `verifySecurityRecommendations()` and `appendGroundingSources()` exports
+
+### Changed
+- Security recommendations now optionally include verified package versions from web sources
+
+---
+
 ## [1.3.3] - 2026-01-20
 
 ### Added

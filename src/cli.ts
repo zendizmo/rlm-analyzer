@@ -177,6 +177,7 @@ ${colors.bold}Options:${colors.reset}
   --model, -m <name> Model to use (default: ${defaultModel})
                      Can use aliases: fast, smart, pro, flash
   --output, -o <file> Save results to markdown file (e.g., rlm-context.md)
+  --grounding, -g    Enable web grounding to verify package versions (security only)
   --verbose, -v      Show detailed turn-by-turn output
   --json             Output results as JSON
   --help, -h         Show this help message
@@ -216,6 +217,9 @@ ${colors.bold}Examples:${colors.reset}
   ${colors.dim}# Save analysis to markdown file${colors.reset}
   rlm summary --output rlm-context.md
 
+  ${colors.dim}# Security analysis with web grounding (verifies package versions)${colors.reset}
+  rlm security --grounding
+
   ${colors.dim}# Configure API key${colors.reset}
   rlm config YOUR_GEMINI_API_KEY
 
@@ -253,6 +257,7 @@ function parseArgs(args: string[]): {
     help: boolean;
     version: boolean;
     output: string | null;
+    grounding: boolean;
   };
 } {
   // Get default model dynamically
@@ -266,6 +271,7 @@ function parseArgs(args: string[]): {
     help: false,
     version: false,
     output: null as string | null,
+    grounding: false,
   };
 
   let command = '';
@@ -305,6 +311,8 @@ function parseArgs(args: string[]): {
       options.output = arg.slice(9);
     } else if (arg.startsWith('-o=')) {
       options.output = arg.slice(3);
+    } else if (arg === '--grounding' || arg === '-g') {
+      options.grounding = true;
     } else if (!command) {
       command = arg;
     } else if (!target) {
@@ -351,7 +359,7 @@ function createProgressCallback(progressTracker: ProgressTracker): (progress: RL
 async function runCommand(
   command: string,
   target: string | undefined,
-  options: { dir: string; model: string; verbose: boolean; json: boolean; output: string | null }
+  options: { dir: string; model: string; verbose: boolean; json: boolean; output: string | null; grounding: boolean }
 ): Promise<void> {
   const startTime = Date.now();
 
@@ -389,7 +397,10 @@ async function runCommand(
       break;
 
     case 'security':
-      result = await analyzeSecurity(options.dir, analysisOpts);
+      result = await analyzeSecurity(options.dir, {
+        ...analysisOpts,
+        enableWebGrounding: options.grounding,
+      });
       break;
 
     case 'perf':
@@ -533,7 +544,7 @@ function generateMarkdownReport(
     md += '\n';
   }
 
-  md += `---\n*Analysis performed with RLM Analyzer v1.3.1*\n`;
+  md += `---\n*Analysis performed with RLM Analyzer v1.3.4*\n`;
 
   return md;
 }
@@ -605,7 +616,7 @@ export async function runCli(): Promise<void> {
 
   // Show version
   if (options.version) {
-    console.log('rlm-analyzer v1.3.3');
+    console.log('rlm-analyzer v1.3.4');
     process.exit(0);
   }
 

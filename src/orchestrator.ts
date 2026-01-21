@@ -171,11 +171,14 @@ export class RLMOrchestrator {
     // Initialize executor with files
     this.executor.initialize(context.files);
 
+    // Track current turn for progress callbacks (updated in loop)
+    let currentTurn = 0;
+
     // Set up real-time sub-LLM progress callback
     this.executor.setOnSubLLMCall((count: number) => {
       if (onProgress) {
         onProgress({
-          turn: turns.length,
+          turn: currentTurn,
           subCallCount: count,
           phase: 'sub-llm',
           elapsedMs: Date.now() - startTime,
@@ -193,7 +196,7 @@ export class RLMOrchestrator {
     // Set up sub-LLM callback with adaptive compression
     this.executor.setSubLLMCallback(async (subQuery: string) => {
       // Report sub-LLM phase
-      reportProgress(turns.length, 'sub-llm');
+      reportProgress(currentTurn, 'sub-llm');
 
       if (this.verbose) {
         console.log(`  [Sub-LLM] ${subQuery.slice(0, 60)}...`);
@@ -231,6 +234,9 @@ export class RLMOrchestrator {
 
     // Main conversation loop
     for (let turn = 1; turn <= this.config.maxTurns; turn++) {
+      // Update current turn for progress callbacks
+      currentTurn = turn;
+
       // Check timeout
       if (Date.now() - startTime > this.config.timeoutMs) {
         return {

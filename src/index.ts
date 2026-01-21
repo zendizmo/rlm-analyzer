@@ -106,6 +106,13 @@ export {
   buildContextMessage,
 } from './prompts.js';
 
+// Web grounding for security recommendations
+export {
+  verifySecurityRecommendations,
+  appendGroundingSources,
+  type GroundingResult,
+} from './grounding.js';
+
 // ============================================================================
 // Factory Functions for IDE Integration (Claude Code, Codex, Cursor)
 // ============================================================================

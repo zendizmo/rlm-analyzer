@@ -9,7 +9,7 @@
  * 4. Result compression - Compress sub-LLM results
  */
 
-import type { Content } from '@google/genai';
+import type { Message } from './providers/types.js';
 
 /** Memory bank entry for storing key findings */
 export interface MemoryEntry {
@@ -294,15 +294,15 @@ export class ContextManager {
    * Uses sliding window - recent turns in full, older turns compressed
    */
   buildOptimizedHistory(
-    fullHistory: Content[],
+    fullHistory: Message[],
     _currentTurn: number
-  ): Content[] {
+  ): Message[] {
     // If history is small, return as-is
     if (fullHistory.length <= this.config.slidingWindowSize * 2 + 2) {
       return fullHistory;
     }
 
-    const optimized: Content[] = [];
+    const optimized: Message[] = [];
 
     // Always keep the first message (system prompt + context)
     if (fullHistory.length > 0) {
@@ -317,7 +317,7 @@ export class ContextManager {
       const compressionSummary = this.buildCompressionSummary();
       optimized.push({
         role: 'user',
-        parts: [{ text: compressionSummary }],
+        content: compressionSummary,
       });
     }
 

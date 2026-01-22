@@ -10,7 +10,38 @@
 export * from './types.js';
 
 // Configuration
-export { getApiKey, getAIClient, initConfig, hasApiKey } from './config.js';
+export {
+  getApiKey,
+  getAIClient,
+  initConfig,
+  hasApiKey,
+  hasAnyCredentials,
+  hasBedrockCredentials,
+  initializeProvider,
+  getLLMProvider,
+  detectProvider,
+} from './config.js';
+
+// Provider abstraction layer
+export {
+  // Factory functions
+  createProvider,
+  getProvider,
+  initializeProvider as initProvider,
+  resetProvider,
+
+  // Provider implementations (for advanced usage)
+  GeminiProvider,
+  BedrockProvider,
+
+  // Types
+  type ProviderName,
+  type ProviderConfig,
+  type LLMProvider,
+  type Message,
+  type GenerateOptions,
+  type GenerateResponse,
+} from './providers/index.js';
 
 // Model configuration (new in v1.1)
 export {
@@ -19,15 +50,21 @@ export {
   getDefaultModel,
   getFallbackModel,
   resolveModelAlias,
+  resolveProviderModelAlias,
   isModelAlias,
+  isProviderModelAlias,
+  getAvailableModelsForProvider,
 
   // Display helpers
   getModelConfigDisplay,
   getAliasesDisplay,
+  getProviderAliasesDisplay,
 
   // Constants
   MODEL_ALIASES,
   AVAILABLE_MODELS,
+  AVAILABLE_BEDROCK_MODELS,
+  PROVIDER_MODEL_ALIASES,
 
   // Backward compatibility (deprecated)
   DEFAULT_MODEL,
@@ -120,9 +157,12 @@ export {
 import { RLMOrchestrator } from './orchestrator.js';
 import { analyzeCodebase } from './analyzer.js';
 import { resolveModelConfig } from './models.js';
+import { initializeProvider } from './config.js';
 import { getDefaultRLMConfig } from './types.js';
 import type { RLMConfig, CodeAnalysisOptions, CodeAnalysisResult } from './types.js';
 import type { ResolvedModelConfig, ModelConfigOptions } from './models.js';
+
+import type { ProviderName } from './providers/types.js';
 
 /**
  * Options for creating an analyzer instance
@@ -132,6 +172,8 @@ export interface CreateAnalyzerOptions {
   model?: string;
   /** Fallback model to use */
   fallbackModel?: string;
+  /** LLM provider to use (default: gemini) */
+  provider?: ProviderName;
   /** Enable verbose output */
   verbose?: boolean;
   /** RLM configuration overrides */
@@ -182,9 +224,15 @@ export interface AnalyzerInstance {
  * @returns Analyzer instance with analyze function and orchestrator
  */
 export function createAnalyzer(options: CreateAnalyzerOptions = {}): AnalyzerInstance {
+  const provider = options.provider || 'gemini';
+
+  // Initialize the provider
+  initializeProvider(provider);
+
   const modelConfig = resolveModelConfig({
     model: options.model,
     fallbackModel: options.fallbackModel,
+    provider,
   });
 
   const config = getDefaultRLMConfig(modelConfig.defaultModel);
@@ -204,6 +252,7 @@ export function createAnalyzer(options: CreateAnalyzerOptions = {}): AnalyzerIns
       directory,
       ...analysisOptions,
       model: modelConfig.defaultModel,
+      provider,
       verbose: options.verbose,
     });
   };

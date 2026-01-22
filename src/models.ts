@@ -1,6 +1,7 @@
 /**
  * Model Configuration Module
  * Handles model resolution with configurable priority chain
+ * Supports multiple providers: Gemini (default) and Amazon Bedrock
  *
  * Priority chain for model resolution:
  * 1. CLI --model flag (highest)
@@ -13,6 +14,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import type { ProviderName } from './providers/types.js';
 
 // ============================================================================
 // Private built-in defaults (not exported)
@@ -22,11 +24,11 @@ const BUILTIN_DEFAULT_MODEL = 'gemini-3-flash-preview';
 const BUILTIN_FALLBACK_MODEL = 'gemini-3-flash-preview';
 
 // ============================================================================
-// Model Aliases
+// Model Aliases (Gemini - default/backward compatible)
 // ============================================================================
 
 /**
- * Model aliases for convenience
+ * Model aliases for convenience (Gemini provider)
  * Users can specify aliases instead of full model IDs
  */
 export const MODEL_ALIASES: Record<string, string> = {
@@ -40,7 +42,36 @@ export const MODEL_ALIASES: Record<string, string> = {
 };
 
 /**
- * Available model options (for display in help)
+ * Provider-specific model aliases
+ */
+export const PROVIDER_MODEL_ALIASES: Record<ProviderName, Record<string, string>> = {
+  gemini: {
+    fast: 'gemini-3-flash-preview',
+    smart: 'gemini-3-pro-preview',
+    default: 'gemini-3-flash-preview',
+    pro: 'gemini-3-pro-preview',
+    flash: 'gemini-3-flash-preview',
+    'flash-2': 'gemini-2.0-flash-exp',
+    'flash-2.5': 'gemini-2.5-flash',
+    grounding: 'gemini-3-flash-preview',
+  },
+  bedrock: {
+    fast: 'amazon.nova-lite-v1:0',
+    smart: 'amazon.nova-pro-v1:0',
+    default: 'amazon.nova-lite-v1:0',
+    premier: 'us.amazon.nova-premier-v1:0',
+    grounding: 'us.amazon.nova-premier-v1:0',
+    'nova-lite': 'amazon.nova-lite-v1:0',
+    'nova-pro': 'amazon.nova-pro-v1:0',
+    'nova-premier': 'us.amazon.nova-premier-v1:0',
+    'claude-haiku': 'anthropic.claude-3-haiku-20240307-v1:0',
+    'claude-sonnet': 'anthropic.claude-3-sonnet-20240229-v1:0',
+    'claude-opus': 'anthropic.claude-3-opus-20240229-v1:0',
+  },
+};
+
+/**
+ * Available model options (for display in help) - Gemini
  */
 export const AVAILABLE_MODELS = [
   { id: 'gemini-3-flash-preview', description: 'Gemini 3 Flash - Fast and efficient' },
@@ -48,6 +79,25 @@ export const AVAILABLE_MODELS = [
   { id: 'gemini-2.5-flash', description: 'Gemini 2.5 Flash - Stable' },
   { id: 'gemini-2.0-flash-exp', description: 'Gemini 2.0 Flash - Fallback' },
 ];
+
+/**
+ * Available Bedrock models (for display in help)
+ */
+export const AVAILABLE_BEDROCK_MODELS = [
+  { id: 'amazon.nova-lite-v1:0', description: 'Nova Lite - Fast, cost-effective' },
+  { id: 'amazon.nova-pro-v1:0', description: 'Nova Pro - Balanced performance' },
+  { id: 'us.amazon.nova-premier-v1:0', description: 'Nova Premier - Most capable, web grounding' },
+  { id: 'anthropic.claude-3-haiku-20240307-v1:0', description: 'Claude 3 Haiku - Fast Claude' },
+  { id: 'anthropic.claude-3-sonnet-20240229-v1:0', description: 'Claude 3 Sonnet - Balanced Claude' },
+  { id: 'anthropic.claude-3-opus-20240229-v1:0', description: 'Claude 3 Opus - Most capable Claude' },
+];
+
+/**
+ * Get available models for a specific provider
+ */
+export function getAvailableModelsForProvider(provider: ProviderName): typeof AVAILABLE_MODELS {
+  return provider === 'bedrock' ? AVAILABLE_BEDROCK_MODELS : AVAILABLE_MODELS;
+}
 
 // ============================================================================
 // Model Resolution Options
@@ -58,6 +108,8 @@ export interface ModelConfigOptions {
   model?: string;
   /** Fallback model specified via CLI flag or programmatic API */
   fallbackModel?: string;
+  /** Provider to use for model alias resolution */
+  provider?: ProviderName;
 }
 
 export interface ResolvedModelConfig {
@@ -77,6 +129,7 @@ export interface ResolvedModelConfig {
 
 interface ConfigFileContent {
   apiKey?: string;
+  provider?: ProviderName;
   models?: {
     default?: string;
     fallback?: string;
@@ -110,7 +163,7 @@ function readConfigFile(): ConfigFileContent | null {
 // ============================================================================
 
 /**
- * Resolve a model alias to its full model ID
+ * Resolve a model alias to its full model ID (Gemini default)
  * If the input is not an alias, returns it unchanged
  *
  * @param modelOrAlias - Model ID or alias
@@ -122,10 +175,32 @@ export function resolveModelAlias(modelOrAlias: string): string {
 }
 
 /**
+ * Resolve a model alias to its full model ID for a specific provider
+ * If the input is not an alias, returns it unchanged
+ *
+ * @param modelOrAlias - Model ID or alias
+ * @param provider - Provider to use for resolution
+ * @returns Full model ID
+ */
+export function resolveProviderModelAlias(modelOrAlias: string, provider: ProviderName): string {
+  const lowercased = modelOrAlias.toLowerCase();
+  const providerAliases = PROVIDER_MODEL_ALIASES[provider];
+  return providerAliases?.[lowercased] || modelOrAlias;
+}
+
+/**
  * Check if a string is a known model alias
  */
 export function isModelAlias(value: string): boolean {
   return value.toLowerCase() in MODEL_ALIASES;
+}
+
+/**
+ * Check if a string is a known model alias for a specific provider
+ */
+export function isProviderModelAlias(value: string, provider: ProviderName): boolean {
+  const lowercased = value.toLowerCase();
+  return lowercased in (PROVIDER_MODEL_ALIASES[provider] || {});
 }
 
 // ============================================================================
@@ -145,8 +220,15 @@ export function isModelAlias(value: string): boolean {
  * @returns Resolved model configuration with source information
  */
 export function resolveModelConfig(options: ModelConfigOptions = {}): ResolvedModelConfig {
-  let defaultModel: string = BUILTIN_DEFAULT_MODEL;
-  let fallbackModel: string = BUILTIN_FALLBACK_MODEL;
+  const provider = options.provider || 'gemini';
+  const resolveAlias = (alias: string) => resolveProviderModelAlias(alias, provider);
+
+  let defaultModel: string = provider === 'bedrock'
+    ? PROVIDER_MODEL_ALIASES.bedrock.default
+    : BUILTIN_DEFAULT_MODEL;
+  let fallbackModel: string = provider === 'bedrock'
+    ? PROVIDER_MODEL_ALIASES.bedrock.fast
+    : BUILTIN_FALLBACK_MODEL;
   let defaultSource: ResolvedModelConfig['defaultSource'] = 'builtin';
   let fallbackSource: ResolvedModelConfig['fallbackSource'] = 'builtin';
 
@@ -157,11 +239,11 @@ export function resolveModelConfig(options: ModelConfigOptions = {}): ResolvedMo
     const configFallback = configFile.models?.fallback;
 
     if (configDefault) {
-      defaultModel = resolveModelAlias(configDefault);
+      defaultModel = resolveAlias(configDefault);
       defaultSource = 'config';
     }
     if (configFallback) {
-      fallbackModel = resolveModelAlias(configFallback);
+      fallbackModel = resolveAlias(configFallback);
       fallbackSource = 'config';
     }
   }
@@ -171,21 +253,21 @@ export function resolveModelConfig(options: ModelConfigOptions = {}): ResolvedMo
   const envFallback = process.env.RLM_FALLBACK_MODEL;
 
   if (envDefault) {
-    defaultModel = resolveModelAlias(envDefault);
+    defaultModel = resolveAlias(envDefault);
     defaultSource = 'env';
   }
   if (envFallback) {
-    fallbackModel = resolveModelAlias(envFallback);
+    fallbackModel = resolveAlias(envFallback);
     fallbackSource = 'env';
   }
 
   // Step 3: Apply CLI/API options (highest priority)
   if (options.model) {
-    defaultModel = resolveModelAlias(options.model);
+    defaultModel = resolveAlias(options.model);
     defaultSource = 'cli';
   }
   if (options.fallbackModel) {
-    fallbackModel = resolveModelAlias(options.fallbackModel);
+    fallbackModel = resolveAlias(options.fallbackModel);
     fallbackSource = 'cli';
   }
 
@@ -256,9 +338,18 @@ export function getModelConfigDisplay(options: ModelConfigOptions = {}): string 
  * Get formatted string showing available aliases
  * Useful for CLI help text
  */
-export function getAliasesDisplay(): string {
-  const lines = Object.entries(MODEL_ALIASES).map(
-    ([alias, model]) => `  ${alias.padEnd(12)} → ${model}`
+export function getAliasesDisplay(provider?: ProviderName): string {
+  const aliases = provider ? PROVIDER_MODEL_ALIASES[provider] : MODEL_ALIASES;
+  const lines = Object.entries(aliases).map(
+    ([alias, model]) => `  ${alias.padEnd(14)} → ${model}`
   );
   return lines.join('\n');
+}
+
+/**
+ * Get formatted string showing available aliases for a provider
+ * Useful for CLI help text
+ */
+export function getProviderAliasesDisplay(provider: ProviderName): string {
+  return getAliasesDisplay(provider);
 }

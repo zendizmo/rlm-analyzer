@@ -5,7 +5,7 @@
 [![npm version](https://badge.fury.io/js/rlm-analyzer.svg)](https://www.npmjs.com/package/rlm-analyzer)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Analyze any codebase with AI that can process **100x beyond context limits**. Powered by **Gemini 3** and based on MIT CSAIL research on [Recursive Language Models](https://arxiv.org/abs/2512.24601).
+Analyze any codebase with AI that can process **100x beyond context limits**. Powered by **Gemini 3** or **Amazon Bedrock (Nova/Claude)** and based on MIT CSAIL research on [Recursive Language Models](https://arxiv.org/abs/2512.24601).
 
 ## Features
 
@@ -16,8 +16,10 @@ Analyze any codebase with AI that can process **100x beyond context limits**. Po
 - **Refactoring Suggestions** - Identifies code smells and improvements
 - **Symbol Search** - Find all usages of functions, classes, variables
 - **Custom Questions** - Ask anything about your codebase
+- **Multi-Provider Support** - Choose between Gemini (default) or Amazon Bedrock (Nova/Claude)
+- **Web Grounding** - Verify package versions with real-time web search (Gemini & Nova Premier)
 - **MCP Integration** - Works with Claude Code, Cursor, and other MCP clients
-- **Cost Efficient** - Save 60-73% on API costs by offloading to Gemini
+- **Cost Efficient** - Save 60-73% on API costs by offloading to Gemini/Nova
 - **Token Optimization** - Context compression saves additional 50-70%
 
 ## Table of Contents
@@ -60,32 +62,57 @@ npx rlm-analyzer summary
 
 ## Quick Start
 
-### 1. Configure API Key
+### 1. Configure Provider Credentials
+
+#### Option A: Google Gemini (Default)
 
 Get a free API key from [Google AI Studio](https://makersuite.google.com/app/apikey), then:
 
 ```bash
-# Option 1: Use the config command
+# Use the config command
 rlm config YOUR_GEMINI_API_KEY
 
-# Option 2: Set environment variable
+# Or set environment variable
 export GEMINI_API_KEY=your_api_key
 
-# Option 3: Create .env file in your project
+# Or create .env file
 echo "GEMINI_API_KEY=your_api_key" > .env
+```
+
+#### Option B: Amazon Bedrock
+
+First, install the AWS SDK (required for Bedrock):
+
+```bash
+npm install @aws-sdk/client-bedrock-runtime
+```
+
+Then configure AWS credentials:
+
+```bash
+# Option 1: Environment variables
+export AWS_ACCESS_KEY_ID=your_access_key
+export AWS_SECRET_ACCESS_KEY=your_secret_key
+export AWS_REGION=us-east-1
+
+# Option 2: AWS CLI profile
+aws configure
 ```
 
 ### 2. Analyze Your Code
 
 ```bash
-# Get a codebase summary
+# Get a codebase summary (uses Gemini by default)
 rlm summary
+
+# Use Amazon Bedrock instead
+rlm summary --provider bedrock
 
 # Analyze architecture
 rlm arch
 
-# Security analysis
-rlm security
+# Security analysis with web grounding
+rlm security --grounding
 
 # Ask a question
 rlm ask "How does authentication work?"
@@ -117,6 +144,8 @@ rlm ask "How does authentication work?"
 |--------|-------------|
 | `--dir, -d <path>` | Directory to analyze (default: current) |
 | `--model, -m <name>` | Model to use (see [Model Configuration](#model-configuration)) |
+| `--provider, -p <name>` | LLM provider: `gemini` (default) or `bedrock` |
+| `--grounding` | Enable web grounding for security analysis |
 | `--output, -o <file>` | Save results to a markdown file |
 | `--verbose, -v` | Show detailed turn-by-turn output |
 | `--json` | Output results as JSON |
@@ -131,6 +160,12 @@ rlm arch --dir /path/to/project
 # Use a specific model
 rlm summary --model smart
 
+# Use Amazon Bedrock with Nova Pro
+rlm summary --provider bedrock --model smart
+
+# Use Bedrock with Claude
+rlm arch --provider bedrock --model claude-sonnet
+
 # Find all usages of a function
 rlm find "handleSubmit"
 
@@ -139,6 +174,9 @@ rlm explain src/auth/login.ts
 
 # Ask about the codebase
 rlm ask "What design patterns are used in this codebase?"
+
+# Security analysis with web grounding (verifies package versions)
+rlm security --grounding
 
 # Get JSON output for scripting
 rlm summary --json > analysis.json
@@ -160,6 +198,8 @@ RLM Analyzer includes an MCP (Model Context Protocol) server for integration wit
 
 Add to your Claude Code configuration (`~/.claude.json` or project `.mcp.json`):
 
+#### Using Gemini (Default)
+
 ```json
 {
   "mcpServers": {
@@ -168,6 +208,51 @@ Add to your Claude Code configuration (`~/.claude.json` or project `.mcp.json`):
       "args": ["-y", "rlm-analyzer-mcp"],
       "env": {
         "GEMINI_API_KEY": "your_api_key"
+      }
+    }
+  }
+}
+```
+
+#### Using Amazon Bedrock
+
+First, install the AWS SDK in your project or globally:
+
+```bash
+npm install @aws-sdk/client-bedrock-runtime
+```
+
+Then configure the MCP server:
+
+```json
+{
+  "mcpServers": {
+    "rlm-analyzer": {
+      "command": "npx",
+      "args": ["-y", "rlm-analyzer-mcp"],
+      "env": {
+        "RLM_PROVIDER": "bedrock",
+        "AWS_REGION": "us-east-1",
+        "AWS_ACCESS_KEY_ID": "your_access_key",
+        "AWS_SECRET_ACCESS_KEY": "your_secret_key"
+      }
+    }
+  }
+}
+```
+
+Or use an AWS profile:
+
+```json
+{
+  "mcpServers": {
+    "rlm-analyzer": {
+      "command": "npx",
+      "args": ["-y", "rlm-analyzer-mcp"],
+      "env": {
+        "RLM_PROVIDER": "bedrock",
+        "AWS_PROFILE": "your_profile_name",
+        "AWS_REGION": "us-east-1"
       }
     }
   }
@@ -213,12 +298,12 @@ import {
   loadFiles,
 } from 'rlm-analyzer';
 
-// Analyze architecture
+// Analyze architecture (uses default provider - Gemini)
 const result = await analyzeArchitecture('/path/to/project');
 console.log(result.answer);
 
-// Security analysis
-const security = await analyzeSecurity('/path/to/project');
+// Security analysis with Bedrock
+const security = await analyzeSecurity('/path/to/project', { provider: 'bedrock' });
 console.log(security.answer);
 
 // Ask a custom question
@@ -233,7 +318,8 @@ const full = await analyzeCodebase({
   directory: '/path/to/project',
   query: 'Explain the data flow',
   analysisType: 'custom',
-  model: 'gemini-3-pro-preview',
+  model: 'smart', // Uses provider-specific alias
+  provider: 'bedrock', // Use Amazon Bedrock
   verbose: true,
 });
 ```
@@ -337,12 +423,25 @@ const relevantMemories = attention.filterByAttention(memories, 10);
 
 ### Available Models
 
+#### Gemini Models (Default Provider)
+
 | Model ID | Alias | Description |
 |----------|-------|-------------|
 | `gemini-3-flash-preview` | `fast`, `flash`, `default` | Fast and efficient (recommended) |
 | `gemini-3-pro-preview` | `smart`, `pro` | Most capable |
 | `gemini-2.5-flash` | `flash-2.5` | Stable release |
 | `gemini-2.0-flash-exp` | `flash-2` | Fallback option |
+
+#### Amazon Bedrock Models
+
+| Model ID | Alias | Description |
+|----------|-------|-------------|
+| `amazon.nova-lite-v1:0` | `fast`, `nova-lite` | Fast, cost-effective |
+| `amazon.nova-pro-v1:0` | `smart`, `nova-pro` | Balanced performance |
+| `us.amazon.nova-premier-v1:0` | `premier`, `grounding` | Most capable, supports web grounding |
+| `anthropic.claude-3-haiku-*` | `claude-haiku` | Fast Claude model |
+| `anthropic.claude-3-sonnet-*` | `claude-sonnet` | Balanced Claude model |
+| `anthropic.claude-3-opus-*` | `claude-opus` | Most capable Claude model |
 
 ### Configuration Priority
 
@@ -351,7 +450,7 @@ Model selection follows this priority order:
 1. **CLI `--model` flag** (highest priority)
 2. **Environment variables**: `RLM_DEFAULT_MODEL`, `RLM_FALLBACK_MODEL`
 3. **Config file**: `~/.rlm-analyzer/config.json`
-4. **Built-in defaults**: `gemini-3-flash-preview`
+4. **Built-in defaults**: `gemini-3-flash-preview` (Gemini) or `amazon.nova-lite-v1:0` (Bedrock)
 
 ### Using Model Aliases
 
@@ -361,16 +460,35 @@ rlm summary --model fast
 
 # Use smart model (gemini-3-pro-preview)
 rlm arch --model smart
+
+# Use Bedrock with Nova Pro
+rlm summary --provider bedrock --model smart
+
+# Use Bedrock with Claude Sonnet
+rlm arch --provider bedrock --model claude-sonnet
 ```
 
 ### Environment Variables
 
 ```bash
+# Set default provider (gemini or bedrock)
+export RLM_PROVIDER=gemini
+
 # Set default model
 export RLM_DEFAULT_MODEL=gemini-3-pro-preview
 
 # Set fallback model
 export RLM_FALLBACK_MODEL=gemini-2.0-flash-exp
+
+# Gemini API key
+export GEMINI_API_KEY=your_api_key
+
+# Bedrock credentials (when using bedrock provider)
+export AWS_ACCESS_KEY_ID=your_access_key
+export AWS_SECRET_ACCESS_KEY=your_secret_key
+export AWS_REGION=us-east-1
+# Or use a profile
+export AWS_PROFILE=your_profile_name
 ```
 
 ### Config File
@@ -379,7 +497,8 @@ Create `~/.rlm-analyzer/config.json`:
 
 ```json
 {
-  "apiKey": "your_api_key",
+  "apiKey": "your_gemini_api_key",
+  "provider": "gemini",
   "models": {
     "default": "gemini-3-flash-preview",
     "fallback": "gemini-2.0-flash-exp"
@@ -446,7 +565,9 @@ Multi-pass analysis for quality improvement on complex queries.
 
 ## Configuration
 
-### API Key Storage
+### Credentials Storage
+
+#### Gemini Credentials
 
 Your API key can be stored in multiple locations (checked in order):
 
@@ -456,6 +577,17 @@ Your API key can be stored in multiple locations (checked in order):
 4. `.env.local` file in current directory
 5. `~/.rlm-analyzer/config.json`
 6. `~/.config/rlm-analyzer/config.json`
+
+#### Bedrock Credentials
+
+AWS credentials are loaded using the standard AWS SDK credential chain:
+
+1. Environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`)
+2. Shared credentials file (`~/.aws/credentials`)
+3. AWS profile (`AWS_PROFILE` environment variable)
+4. IAM role (when running on AWS infrastructure)
+
+The region can be set via `AWS_REGION` environment variable (default: `us-east-1`).
 
 ### File Filtering
 
@@ -579,7 +711,7 @@ When used as an MCP tool with Claude Code or Cursor, RLM Analyzer significantly 
 
 ## Troubleshooting
 
-### "API key not configured"
+### "API key not configured" (Gemini)
 
 ```bash
 # Check if key is set
@@ -587,6 +719,29 @@ rlm config
 
 # Set your key
 rlm config YOUR_API_KEY
+```
+
+### "AWS credentials not configured" (Bedrock)
+
+```bash
+# Check credentials
+rlm config
+
+# Option 1: Set environment variables
+export AWS_ACCESS_KEY_ID=your_key
+export AWS_SECRET_ACCESS_KEY=your_secret
+export AWS_REGION=us-east-1
+
+# Option 2: Use AWS CLI to configure
+aws configure
+```
+
+### "Amazon Bedrock provider requires @aws-sdk/client-bedrock-runtime"
+
+The AWS SDK is an optional dependency. Install it to use Bedrock:
+
+```bash
+npm install @aws-sdk/client-bedrock-runtime
 ```
 
 ### "No files found to analyze"
@@ -602,6 +757,7 @@ rlm summary --dir /path/to/code
 - Large codebases take longer (100+ files = more sub-LLM calls)
 - Use `--verbose` to see progress and token savings
 - Consider analyzing specific subdirectories
+- Use `--model fast` for faster analysis
 
 ### Execution errors in verbose mode
 
@@ -610,8 +766,15 @@ Some codebases trigger security filters (e.g., files containing `process.env`). 
 ### MCP server not connecting
 
 1. Verify the command works: `npx rlm-analyzer-mcp`
-2. Check API key is set in the MCP config
+2. Check credentials are set in the MCP config (Gemini API key or AWS credentials)
 3. Restart your MCP client (Claude Code, Cursor)
+
+### Bedrock throttling errors
+
+If you see throttling errors with Bedrock, try:
+- Using a smaller model (`--model fast`)
+- Reducing concurrent requests
+- Requesting higher limits from AWS
 
 ---
 
@@ -627,6 +790,13 @@ import type {
   CodeAnalysisOptions,
   CodeAnalysisResult,
   AnalysisType,
+
+  // Provider types
+  ProviderName,       // 'gemini' | 'bedrock'
+  LLMProvider,        // Provider interface
+  Message,            // Conversation message
+  GenerateOptions,    // Generation options
+  GenerateResponse,   // Generation response
 
   // Context management
   MemoryEntry,

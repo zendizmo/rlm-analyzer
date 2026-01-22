@@ -2,15 +2,34 @@
 /**
  * RLM Analyzer MCP Server
  * Exposes RLM analysis capabilities via Model Context Protocol
+ * Supports both Gemini and Amazon Bedrock providers
  *
  * Usage with Claude Code:
  * Add to ~/.claude/claude_desktop_config.json:
+ *
+ * For Gemini (default):
  * {
  *   "mcpServers": {
  *     "rlm-analyzer": {
  *       "command": "npx",
  *       "args": ["rlm-analyzer-mcp"],
  *       "env": { "GEMINI_API_KEY": "your_key" }
+ *     }
+ *   }
+ * }
+ *
+ * For Amazon Bedrock:
+ * {
+ *   "mcpServers": {
+ *     "rlm-analyzer": {
+ *       "command": "npx",
+ *       "args": ["rlm-analyzer-mcp"],
+ *       "env": {
+ *         "RLM_PROVIDER": "bedrock",
+ *         "AWS_REGION": "us-east-1",
+ *         "AWS_ACCESS_KEY_ID": "your_key",
+ *         "AWS_SECRET_ACCESS_KEY": "your_secret"
+ *       }
  *     }
  *   }
  * }
@@ -35,9 +54,17 @@ import {
   summarizeCodebase,
   askQuestion,
 } from './analyzer.js';
-import { resolveModelConfig, resolveModelAlias } from './models.js';
-import { hasApiKey } from './config.js';
+import { resolveModelConfig, resolveProviderModelAlias, getProviderAliasesDisplay } from './models.js';
+import { hasApiKey, hasAnyCredentials, initializeProvider, hasBedrockCredentials } from './config.js';
 import type { AnalysisType } from './types.js';
+import type { ProviderName } from './providers/types.js';
+
+// Provider parameter common to all analysis tools
+const PROVIDER_PARAM = {
+  type: 'string',
+  enum: ['gemini', 'bedrock'],
+  description: 'LLM provider to use (default: gemini). Bedrock requires AWS credentials.',
+};
 
 // Tool definitions
 const TOOLS = [
@@ -64,6 +91,7 @@ const TOOLS = [
           type: 'string',
           description: 'Model to use: fast, smart, or full model ID (default: from environment)',
         },
+        provider: PROVIDER_PARAM,
       },
       required: ['directory'],
     },
@@ -82,6 +110,7 @@ const TOOLS = [
           type: 'string',
           description: 'Model to use: fast, smart, or full model ID',
         },
+        provider: PROVIDER_PARAM,
       },
       required: ['directory'],
     },
@@ -100,6 +129,7 @@ const TOOLS = [
           type: 'string',
           description: 'Model to use: fast, smart, or full model ID',
         },
+        provider: PROVIDER_PARAM,
       },
       required: ['directory'],
     },
@@ -118,6 +148,7 @@ const TOOLS = [
           type: 'string',
           description: 'Model to use: fast, smart, or full model ID',
         },
+        provider: PROVIDER_PARAM,
       },
       required: ['directory'],
     },
@@ -136,6 +167,7 @@ const TOOLS = [
           type: 'string',
           description: 'Model to use: fast, smart, or full model ID',
         },
+        provider: PROVIDER_PARAM,
       },
       required: ['directory'],
     },
@@ -154,6 +186,7 @@ const TOOLS = [
           type: 'string',
           description: 'Model to use: fast, smart, or full model ID',
         },
+        provider: PROVIDER_PARAM,
       },
       required: ['directory'],
     },
@@ -176,6 +209,7 @@ const TOOLS = [
           type: 'string',
           description: 'Model to use: fast, smart, or full model ID',
         },
+        provider: PROVIDER_PARAM,
       },
       required: ['directory', 'question'],
     },
@@ -192,7 +226,7 @@ const TOOLS = [
 
 // Create server
 const server = new Server(
-  { name: 'rlm-analyzer', version: '1.3.3' },
+  { name: 'rlm-analyzer', version: '1.4.0' },
   { capabilities: { tools: {} } }
 );
 
@@ -206,19 +240,31 @@ server.setRequestHandler(CallToolRequestSchema, async (request): Promise<CallToo
   const { name, arguments: args } = request.params;
 
   try {
-    // Check API key for analysis tools
-    if (name !== 'rlm_config' && !hasApiKey()) {
+    // Get provider from args or default to gemini
+    const provider = (args?.provider as ProviderName) || 'gemini';
+
+    // Check credentials for analysis tools
+    if (name !== 'rlm_config' && !hasAnyCredentials()) {
+      const errorMsg = provider === 'bedrock'
+        ? 'Error: AWS credentials not configured. Set AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY or AWS_PROFILE.'
+        : 'Error: GEMINI_API_KEY not configured. Set it in the MCP server environment.';
       return {
         content: [{
           type: 'text',
-          text: 'Error: GEMINI_API_KEY not configured. Set it in the MCP server environment.',
+          text: errorMsg,
         }],
         isError: true,
       };
     }
 
-    const model = args?.model ? resolveModelAlias(args.model as string) : undefined;
-    const options = model ? { model } : {};
+    // Initialize provider for analysis tools
+    if (name !== 'rlm_config') {
+      initializeProvider(provider);
+    }
+
+    // Resolve model alias using provider-specific resolution
+    const model = args?.model ? resolveProviderModelAlias(args.model as string, provider) : undefined;
+    const options = { ...(model ? { model } : {}), provider };
 
     switch (name) {
       case 'rlm_analyze': {
@@ -344,21 +390,31 @@ server.setRequestHandler(CallToolRequestSchema, async (request): Promise<CallToo
       }
 
       case 'rlm_config': {
-        const config = resolveModelConfig();
-        const apiKeyStatus = hasApiKey() ? 'configured' : 'NOT CONFIGURED';
+        const geminiConfig = resolveModelConfig({ provider: 'gemini' });
+        const bedrockConfig = resolveModelConfig({ provider: 'bedrock' });
+        const geminiStatus = hasApiKey() ? 'configured' : 'NOT CONFIGURED';
+        const bedrockStatus = hasBedrockCredentials() ? 'configured' : 'NOT CONFIGURED';
 
         return {
           content: [{
             type: 'text',
             text: `RLM Analyzer Configuration:
-- API Key: ${apiKeyStatus}
-- Default Model: ${config.defaultModel} (source: ${config.defaultSource})
-- Fallback Model: ${config.fallbackModel} (source: ${config.fallbackSource})
 
-Model Aliases:
-- fast → gemini-3-flash-preview
-- smart → gemini-3-pro-preview
-- pro → gemini-3-pro-preview`,
+Gemini Provider:
+- API Key: ${geminiStatus}
+- Default Model: ${geminiConfig.defaultModel} (source: ${geminiConfig.defaultSource})
+- Fallback Model: ${geminiConfig.fallbackModel} (source: ${geminiConfig.fallbackSource})
+- Aliases:
+${getProviderAliasesDisplay('gemini')}
+
+Bedrock Provider:
+- AWS Credentials: ${bedrockStatus}
+- Default Model: ${bedrockConfig.defaultModel} (source: ${bedrockConfig.defaultSource})
+- Fallback Model: ${bedrockConfig.fallbackModel} (source: ${bedrockConfig.fallbackSource})
+- Aliases:
+${getProviderAliasesDisplay('bedrock')}
+
+Use 'provider' parameter to switch between providers.`,
           }],
         };
       }

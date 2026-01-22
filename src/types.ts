@@ -4,6 +4,7 @@
  */
 
 import { getDefaultModel } from './models.js';
+import type { ProviderName } from './providers/types.js';
 
 /** Analysis types supported by the analyzer */
 export type AnalysisType = 'architecture' | 'dependencies' | 'security' | 'performance' | 'refactor' | 'summary' | 'custom';
@@ -107,8 +108,10 @@ export interface CodeAnalysisOptions {
   onProgress?: (progress: RLMProgress) => void;
   /** Verbose output */
   verbose?: boolean;
-  /** Gemini model to use */
+  /** Model to use (alias or full model ID) */
   model?: string;
+  /** LLM provider to use (default: gemini) */
+  provider?: ProviderName;
   /** Output file path for saving results (e.g., 'rlm-context.md') */
   outputFile?: string;
   /** Maximum turns before forcing completion (default: auto-calculated based on codebase size) */

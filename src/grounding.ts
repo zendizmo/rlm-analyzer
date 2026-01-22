@@ -1,11 +1,10 @@
 /**
  * Web Grounding Utilities
- * Uses Google Search grounding to verify and update package version recommendations
+ * Uses web search grounding to verify and update package version recommendations
+ * Supports multiple providers: Gemini (googleSearch) and Bedrock Nova (nova_grounding)
  */
 
-import { GoogleGenAI } from '@google/genai';
-import { getDefaultModel } from './models.js';
-import { getApiKey, hasApiKey } from './config.js';
+import { getLLMProvider, hasAnyCredentials } from './config.js';
 
 /** Result of web grounding verification */
 export interface GroundingResult {
@@ -41,25 +40,37 @@ function hasVersionContent(text: string): boolean {
 }
 
 /**
- * Verify and enhance security recommendations using Google Search grounding
+ * Verify and enhance security recommendations using web search grounding
+ * Works with both Gemini (googleSearch) and Bedrock Nova (nova_grounding)
  */
 export async function verifySecurityRecommendations(
   originalAnswer: string,
   verbose = false
 ): Promise<GroundingResult> {
   try {
-    if (!hasApiKey()) {
+    // Check if any provider credentials are available
+    if (!hasAnyCredentials()) {
       return {
         enhancedAnswer: originalAnswer,
         sources: [],
         searchQueries: [],
         success: false,
-        error: 'No API key found for web grounding',
+        error: 'No provider credentials found for web grounding',
       };
     }
-    const apiKey = getApiKey();
 
-    const ai = new GoogleGenAI({ apiKey });
+    const provider = getLLMProvider();
+
+    // Check if the provider supports web grounding
+    if (!provider.supportsWebGrounding()) {
+      return {
+        enhancedAnswer: originalAnswer,
+        sources: [],
+        searchQueries: [],
+        success: false,
+        error: `Provider ${provider.name} does not support web grounding`,
+      };
+    }
 
     // Check if the analysis contains version-related content worth verifying
     if (!hasVersionContent(originalAnswer)) {
@@ -75,7 +86,7 @@ export async function verifySecurityRecommendations(
     }
 
     if (verbose) {
-      console.log('[Grounding] Verifying security recommendations with web search...');
+      console.log(`[Grounding] Verifying security recommendations with ${provider.name} web search...`);
     }
 
     // Let the LLM with web search identify and verify everything
@@ -98,33 +109,16 @@ Output the enhanced security analysis with:
 - Any new critical vulnerabilities discovered
 - Keep the same overall structure but update the facts`;
 
-    const response = await ai.models.generateContent({
-      model: getDefaultModel(),
-      contents: verificationPrompt,
-      config: {
-        tools: [{ googleSearch: {} }],
-      },
+    const response = await provider.generate(verificationPrompt, {
+      model: provider.getGroundingModel() || undefined,
+      enableWebGrounding: true,
     });
 
     const enhancedText = response.text || originalAnswer;
 
-    // Extract grounding metadata
-    const metadata = response.candidates?.[0]?.groundingMetadata;
-    const sources: string[] = [];
-    const searchQueries: string[] = [];
-
-    if (metadata) {
-      if (metadata.webSearchQueries) {
-        searchQueries.push(...metadata.webSearchQueries);
-      }
-      if (metadata.groundingChunks) {
-        for (const chunk of metadata.groundingChunks) {
-          if (chunk.web?.uri) {
-            sources.push(chunk.web.uri);
-          }
-        }
-      }
-    }
+    // Extract grounding metadata from response
+    const sources: string[] = response.groundingMetadata?.sources || [];
+    const searchQueries: string[] = response.groundingMetadata?.searchQueries || [];
 
     if (verbose) {
       console.log(`[Grounding] Complete: ${searchQueries.length} web searches, ${sources.length} sources`);

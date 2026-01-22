@@ -1,7 +1,7 @@
 /**
  * RLM Orchestrator
  * Manages the conversation loop between model and REPL
- * Uses Gemini 3 Flash via @google/genai SDK
+ * Supports multiple LLM providers: Gemini and Amazon Bedrock
  *
  * Token Optimization: Implements context compression techniques from
  * the RLM paper (arXiv:2512.24601) for efficient token usage:
@@ -18,7 +18,7 @@ import type {
   RLMProgress,
 } from './types.js';
 import { RLMExecutor } from './executor.js';
-import { getAIClient } from './config.js';
+import { getLLMProvider } from './config.js';
 import { getDefaultModel, getFallbackModel } from './models.js';
 import { getSystemPrompt, buildContextMessage } from './prompts.js';
 import { ContextManager, type ContextManagerConfig } from './context-manager.js';
@@ -32,7 +32,7 @@ import {
   type AdaptiveCompressionConfig,
   type RefinementConfig,
 } from './advanced-features.js';
-import type { Content } from '@google/genai';
+import type { Message } from './providers/types.js';
 
 /**
  * RLM Orchestrator manages the agentic loop
@@ -65,6 +65,20 @@ function getMinSubLLMCalls(fileCount: number): number {
   if (fileCount >= SUB_LLM_THRESHOLDS.MEDIUM.files) return SUB_LLM_THRESHOLDS.MEDIUM.minCalls;
   if (fileCount >= SUB_LLM_THRESHOLDS.SMALL.files) return SUB_LLM_THRESHOLDS.SMALL.minCalls;
   return SUB_LLM_THRESHOLDS.DEFAULT_MIN;
+}
+
+/**
+ * Check if an error is retryable (server errors, throttling)
+ */
+function isRetryableError(message: string): boolean {
+  return (
+    message.includes('500') ||
+    message.includes('Internal') ||
+    message.includes('ThrottlingException') ||
+    message.includes('TooManyRequestsException') ||
+    message.includes('ServiceUnavailable') ||
+    message.includes('ResourceNotFoundException')
+  );
 }
 
 /** Advanced features configuration */
@@ -228,8 +242,8 @@ export class RLMOrchestrator {
       query
     );
 
-    const history: Content[] = [
-      { role: 'user', parts: [{ text: `${systemPrompt}\n\n${contextMessage}` }] },
+    const history: Message[] = [
+      { role: 'user', content: `${systemPrompt}\n\n${contextMessage}` },
     ];
 
     // Main conversation loop
@@ -290,7 +304,7 @@ export class RLMOrchestrator {
             if (memoryInjection) {
               history.push({
                 role: 'user',
-                parts: [{ text: memoryInjection }],
+                content: memoryInjection,
               });
               if (this.verbose) {
                 console.log(`  [Context Rot] Injected memory summary (${memoryBank.length} entries)`);
@@ -302,7 +316,7 @@ export class RLMOrchestrator {
 
       // Update adaptive compressor with estimated context usage
       const estimatedTokens = AdaptiveCompressor.estimateTokens(
-        history.map(h => (h.parts || []).map(p => 'text' in p ? p.text : '').join('')).join('')
+        history.map(h => h.content).join('')
       );
       this.adaptiveCompressor.updateUsage(estimatedTokens);
 
@@ -334,23 +348,19 @@ export class RLMOrchestrator {
         // Report progress after execution (sub-LLM count may have changed)
         reportProgress(turn, 'analyzing');
 
-        history.push({ role: 'model', parts: [{ text: response }] });
+        history.push({ role: 'assistant', content: response });
         history.push({
           role: 'user',
-          parts: [{
-            text: result.success
-              ? `Result:\n\`\`\`\n${executionResult}\n\`\`\``
-              : `Error:\n\`\`\`\n${executionError}\n\`\`\`\n\nPlease fix the code and try again.`,
-          }],
+          content: result.success
+            ? `Result:\n\`\`\`\n${executionResult}\n\`\`\``
+            : `Error:\n\`\`\`\n${executionError}\n\`\`\`\n\nPlease fix the code and try again.`,
         });
       } else {
         // No code, prompt for code or FINAL
-        history.push({ role: 'model', parts: [{ text: response }] });
+        history.push({ role: 'assistant', content: response });
         history.push({
           role: 'user',
-          parts: [{
-            text: 'Please write Python code to analyze the codebase, or use FINAL("your answer") if you have the answer.',
-          }],
+          content: 'Please write Python code to analyze the codebase, or use FINAL("your answer") if you have the answer.',
         });
       }
 
@@ -388,11 +398,10 @@ export class RLMOrchestrator {
             console.log(`  [RLM] Insufficient sub-LLM calls: ${currentSubCalls}/${minSubCalls} required`);
           }
           this.executor.clearFinalAnswer();
-          history.push({ role: 'model', parts: [{ text: response }] });
+          history.push({ role: 'assistant', content: response });
           history.push({
             role: 'user',
-            parts: [{
-              text: `⚠️ INSUFFICIENT ANALYSIS: You made only ${currentSubCalls} sub-LLM calls, but this codebase (${fileCount} files) requires at least ${minSubCalls} llm_query() calls for quality analysis.
+            content: `⚠️ INSUFFICIENT ANALYSIS: You made only ${currentSubCalls} sub-LLM calls, but this codebase (${fileCount} files) requires at least ${minSubCalls} llm_query() calls for quality analysis.
 
 Your FINAL() was rejected. You MUST use llm_query() to analyze more files before providing your final answer.
 
@@ -409,7 +418,6 @@ print(analysis)
 \`\`\`
 
 Make ${minSubCalls - currentSubCalls} more llm_query() calls, then call FINAL() with your comprehensive analysis.`,
-            }],
           });
           continue;
         }
@@ -431,14 +439,12 @@ Make ${minSubCalls - currentSubCalls} more llm_query() calls, then call FINAL() 
           if (this.verbose) {
             console.log(`  [RLM] Insufficient sub-LLM calls: ${currentSubCalls}/${minSubCalls} required`);
           }
-          history.push({ role: 'model', parts: [{ text: response }] });
+          history.push({ role: 'assistant', content: response });
           history.push({
             role: 'user',
-            parts: [{
-              text: `⚠️ INSUFFICIENT ANALYSIS: You made only ${currentSubCalls} sub-LLM calls, but this codebase (${fileCount} files) requires at least ${minSubCalls} llm_query() calls.
+            content: `⚠️ INSUFFICIENT ANALYSIS: You made only ${currentSubCalls} sub-LLM calls, but this codebase (${fileCount} files) requires at least ${minSubCalls} llm_query() calls.
 
 Your FINAL() was rejected. Use llm_query() to analyze ${minSubCalls - currentSubCalls} more key files, then provide your final answer.`,
-            }],
           });
           continue;
         }
@@ -466,10 +472,10 @@ Your FINAL() was rejected. Use llm_query() to analyze ${minSubCalls - currentSub
   }
 
   /**
-   * Call model with conversation history using Gemini
+   * Call model with conversation history using the configured provider
    */
-  private async callConversation(history: Content[]): Promise<string> {
-    const ai = getAIClient();
+  private async callConversation(history: Message[]): Promise<string> {
+    const provider = getLLMProvider();
     const modelsToTry = [this.config.rootModel];
 
     // Add fallback model if not already using it
@@ -481,13 +487,10 @@ Your FINAL() was rejected. Use llm_query() to analyze ${minSubCalls - currentSub
 
     for (const model of modelsToTry) {
       try {
-        const response = await ai.models.generateContent({
+        const response = await provider.generateConversation(history, {
           model,
-          contents: history,
-          config: {
-            temperature: 0.7,
-            maxOutputTokens: 4096,
-          },
+          temperature: 0.7,
+          maxTokens: 4096,
         });
 
         // If using fallback and it worked, log it
@@ -500,16 +503,16 @@ Your FINAL() was rejected. Use llm_query() to analyze ${minSubCalls - currentSub
         const message = error instanceof Error ? error.message : String(error);
         lastError = new Error(`Model ${model}: ${message}`);
 
-        // If it's a 500 error, try the next model
-        if (message.includes('500') || message.includes('Internal')) {
+        // If it's a retryable error, try the next model
+        if (isRetryableError(message)) {
           if (this.verbose) {
-            console.log(`  [Warning] ${model} returned 500, trying fallback...`);
+            console.log(`  [Warning] ${model} failed (retryable), trying fallback...`);
           }
           continue;
         }
 
         // For other errors, don't try fallback
-        throw new Error(`Gemini API error (model: ${model}): ${message}`);
+        throw new Error(`${provider.name} API error (model: ${model}): ${message}`);
       }
     }
 
@@ -517,7 +520,7 @@ Your FINAL() was rejected. Use llm_query() to analyze ${minSubCalls - currentSub
   }
 
   /**
-   * Call model with single prompt using Gemini with fallback
+   * Call model with single prompt using the configured provider with fallback
    */
   private async callModel(
     model: string,
@@ -525,7 +528,7 @@ Your FINAL() was rejected. Use llm_query() to analyze ${minSubCalls - currentSub
     temperature = 0.3,
     maxTokens = 2048
   ): Promise<string> {
-    const ai = getAIClient();
+    const provider = getLLMProvider();
     const modelsToTry = [model];
 
     if (model !== this.fallbackModel) {
@@ -534,24 +537,21 @@ Your FINAL() was rejected. Use llm_query() to analyze ${minSubCalls - currentSub
 
     for (const currentModel of modelsToTry) {
       try {
-        const response = await ai.models.generateContent({
+        const response = await provider.generate(prompt, {
           model: currentModel,
-          contents: prompt,
-          config: {
-            temperature,
-            maxOutputTokens: maxTokens,
-          },
+          temperature,
+          maxTokens,
         });
 
         return response.text || '';
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
 
-        if (message.includes('500') || message.includes('Internal')) {
+        if (isRetryableError(message)) {
           continue;
         }
 
-        throw new Error(`Gemini API error (model: ${currentModel}): ${message}`);
+        throw new Error(`${provider.name} API error (model: ${currentModel}): ${message}`);
       }
     }
 

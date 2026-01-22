@@ -2,6 +2,7 @@
 /**
  * RLM Analyzer CLI
  * Command-line interface for code analysis
+ * Supports multiple providers: Gemini (default) and Amazon Bedrock
  *
  * Usage:
  *   rlm <command> [options]
@@ -20,6 +21,7 @@
  *
  * Options:
  *   --dir, -d      Directory to analyze (default: current)
+ *   --provider, -p Provider to use (gemini|bedrock)
  *   --verbose, -v  Show detailed output
  *   --json         Output as JSON
  *   --help, -h     Show help
@@ -37,12 +39,21 @@ import {
   explainFile,
   askQuestion,
 } from './analyzer.js';
-import { hasApiKey, initConfig, getApiKey } from './config.js';
+import {
+  hasApiKey,
+  hasBedrockCredentials,
+  initConfig,
+  getApiKey,
+  initializeProvider,
+  detectProvider,
+} from './config.js';
+import type { ProviderName } from './providers/types.js';
 import {
   getDefaultModel,
-  resolveModelAlias,
   resolveModelConfig,
+  resolveProviderModelAlias,
   AVAILABLE_MODELS,
+  AVAILABLE_BEDROCK_MODELS,
   getAliasesDisplay,
 } from './models.js';
 import type { RLMTurn, RLMProgress } from './types.js';
@@ -139,22 +150,26 @@ function printBanner(): void {
   log('╚══════════════════════════════════════════╝\n', 'cyan');
 }
 
-function printHelp(): void {
+function printHelp(provider?: ProviderName): void {
   printBanner();
 
+  // Detect provider if not specified
+  const currentProvider = provider || detectProvider();
+
   // Resolve current model config dynamically
-  const modelConfig = resolveModelConfig();
+  const modelConfig = resolveModelConfig({ provider: currentProvider });
   const defaultModel = modelConfig.defaultModel;
 
-  // Format available models
-  const modelsDisplay = AVAILABLE_MODELS.map(m => {
+  // Format available models based on provider
+  const availableModels = currentProvider === 'bedrock' ? AVAILABLE_BEDROCK_MODELS : AVAILABLE_MODELS;
+  const modelsDisplay = availableModels.map(m => {
     const isDefault = m.id === defaultModel;
     const marker = isDefault ? ' (current default)' : '';
-    return `  ${m.id.padEnd(26)} ${m.description}${marker}`;
+    return `  ${m.id.padEnd(40)} ${m.description}${marker}`;
   }).join('\n');
 
-  // Format model aliases
-  const aliasesDisplay = getAliasesDisplay();
+  // Format model aliases for current provider
+  const aliasesDisplay = getAliasesDisplay(currentProvider);
 
   console.log(`${colors.bold}Usage:${colors.reset}
   rlm <command> [options]
@@ -173,76 +188,86 @@ ${colors.bold}Commands:${colors.reset}
   ${colors.green}test${colors.reset}                 Test API connection and model availability
 
 ${colors.bold}Options:${colors.reset}
-  --dir, -d <path>   Directory to analyze (default: current directory)
-  --model, -m <name> Model to use (default: ${defaultModel})
-                     Can use aliases: fast, smart, pro, flash
-  --output, -o <file> Save results to markdown file (e.g., rlm-context.md)
-  --grounding, -g    Enable web grounding to verify package versions (security only)
-  --verbose, -v      Show detailed turn-by-turn output
-  --json             Output results as JSON
-  --help, -h         Show this help message
+  --dir, -d <path>      Directory to analyze (default: current directory)
+  --provider, -p <name> LLM provider to use: gemini (default) or bedrock
+  --model, -m <name>    Model to use (default: ${defaultModel})
+                        Can use aliases: fast, smart, pro, flash (gemini)
+                        Or: nova-lite, nova-pro, nova-premier (bedrock)
+  --output, -o <file>   Save results to markdown file (e.g., rlm-context.md)
+  --grounding, -g       Enable web grounding to verify package versions (security only)
+  --verbose, -v         Show detailed turn-by-turn output
+  --json                Output results as JSON
+  --help, -h            Show this help message
+  --version, -V         Show version number
 
-${colors.bold}Available Models:${colors.reset}
+${colors.bold}Available Models (${currentProvider}):${colors.reset}
 ${modelsDisplay}
 
-${colors.bold}Model Aliases:${colors.reset}
+${colors.bold}Model Aliases (${currentProvider}):${colors.reset}
 ${aliasesDisplay}
 
-${colors.bold}Model Configuration Priority:${colors.reset}
-  1. CLI --model flag (highest)
-  2. Environment: RLM_DEFAULT_MODEL, RLM_FALLBACK_MODEL
-  3. Config file: ~/.rlm-analyzer/config.json
-  4. Built-in defaults
-
 ${colors.bold}Current Configuration:${colors.reset}
+  Provider: ${currentProvider}
   Default: ${modelConfig.defaultModel} (from ${modelConfig.defaultSource})
   Fallback: ${modelConfig.fallbackModel} (from ${modelConfig.fallbackSource})
 
 ${colors.bold}Examples:${colors.reset}
-  ${colors.dim}# Summarize current directory${colors.reset}
+  ${colors.dim}# Summarize current directory (uses default provider)${colors.reset}
   rlm summary
+
+  ${colors.dim}# Analyze with Bedrock provider${colors.reset}
+  rlm summary --provider bedrock
 
   ${colors.dim}# Analyze with specific model${colors.reset}
   rlm arch --model smart --dir /path/to/project
 
-  ${colors.dim}# Use alias for model${colors.reset}
-  rlm summary --model fast
-
-  ${colors.dim}# Find all usages of a function${colors.reset}
-  rlm find "handleSubmit"
-
-  ${colors.dim}# Ask a custom question${colors.reset}
-  rlm ask "How does authentication work in this codebase?"
-
-  ${colors.dim}# Save analysis to markdown file${colors.reset}
-  rlm summary --output rlm-context.md
+  ${colors.dim}# Use Bedrock with Nova Premier${colors.reset}
+  rlm summary --provider bedrock --model nova-premier
 
   ${colors.dim}# Security analysis with web grounding (verifies package versions)${colors.reset}
   rlm security --grounding
 
-  ${colors.dim}# Configure API key${colors.reset}
+  ${colors.dim}# Configure Gemini API key${colors.reset}
   rlm config YOUR_GEMINI_API_KEY
 
-  ${colors.dim}# Set default model via environment${colors.reset}
-  export RLM_DEFAULT_MODEL=fast
+  ${colors.dim}# Set provider via environment${colors.reset}
+  export RLM_PROVIDER=bedrock
   rlm summary
 
 ${colors.bold}Configuration:${colors.reset}
-  Set your Gemini API key using one of these methods:
-  1. Run: ${colors.cyan}rlm config YOUR_API_KEY${colors.reset}
-  2. Set environment variable: ${colors.cyan}export GEMINI_API_KEY=your_key${colors.reset}
-  3. Create .env file with: ${colors.cyan}GEMINI_API_KEY=your_key${colors.reset}
 
-  Model configuration in ~/.rlm-analyzer/config.json:
+  ${colors.cyan}Gemini (Google):${colors.reset}
+    1. Run: ${colors.cyan}rlm config YOUR_API_KEY${colors.reset}
+    2. Or set: ${colors.cyan}export GEMINI_API_KEY=your_key${colors.reset}
+    3. Get key at: ${colors.blue}https://aistudio.google.com/apikey${colors.reset}
+
+  ${colors.cyan}Bedrock (AWS):${colors.reset}
+    1. Configure AWS credentials:
+       ${colors.cyan}export AWS_ACCESS_KEY_ID=your_key${colors.reset}
+       ${colors.cyan}export AWS_SECRET_ACCESS_KEY=your_secret${colors.reset}
+       ${colors.cyan}export AWS_REGION=us-east-1${colors.reset}
+    2. Or use AWS profile: ${colors.cyan}export AWS_PROFILE=your_profile${colors.reset}
+    3. Then: ${colors.cyan}rlm summary --provider bedrock${colors.reset}
+
+${colors.bold}Environment Variables:${colors.reset}
+  RLM_PROVIDER         Default provider (gemini|bedrock)
+  RLM_DEFAULT_MODEL    Default model alias or ID
+  GEMINI_API_KEY       Gemini API key
+  AWS_ACCESS_KEY_ID    AWS access key (for Bedrock)
+  AWS_SECRET_ACCESS_KEY AWS secret key (for Bedrock)
+  AWS_REGION           AWS region (default: us-east-1)
+  AWS_PROFILE          AWS credentials profile name
+
+${colors.bold}Config File:${colors.reset}
+  ~/.rlm-analyzer/config.json:
   ${colors.dim}{
-    "apiKey": "your_key",
+    "apiKey": "gemini_api_key",
+    "provider": "gemini",
     "models": {
       "default": "gemini-3-flash-preview",
       "fallback": "gemini-2.0-flash-exp"
     }
   }${colors.reset}
-
-  Get your API key at: ${colors.blue}https://makersuite.google.com/app/apikey${colors.reset}
 `);
 }
 
@@ -252,6 +277,7 @@ function parseArgs(args: string[]): {
   options: {
     dir: string;
     model: string;
+    provider: ProviderName | undefined;
     verbose: boolean;
     json: boolean;
     help: boolean;
@@ -260,12 +286,10 @@ function parseArgs(args: string[]): {
     grounding: boolean;
   };
 } {
-  // Get default model dynamically
-  const defaultModel = getDefaultModel();
-
   const options = {
     dir: process.cwd(),
-    model: defaultModel,
+    model: '',  // Will be resolved later based on provider
+    provider: undefined as ProviderName | undefined,
     verbose: false,
     json: false,
     help: false,
@@ -297,6 +321,22 @@ function parseArgs(args: string[]): {
       options.dir = path.resolve(arg.slice(6));
     } else if (arg.startsWith('-d=')) {
       options.dir = path.resolve(arg.slice(3));
+    } else if (arg === '--provider' || arg === '-p') {
+      i++;
+      const p = args[i]?.toLowerCase();
+      if (p === 'gemini' || p === 'bedrock') {
+        options.provider = p;
+      }
+    } else if (arg.startsWith('--provider=')) {
+      const p = arg.slice(11).toLowerCase();
+      if (p === 'gemini' || p === 'bedrock') {
+        options.provider = p as ProviderName;
+      }
+    } else if (arg.startsWith('-p=')) {
+      const p = arg.slice(3).toLowerCase();
+      if (p === 'gemini' || p === 'bedrock') {
+        options.provider = p as ProviderName;
+      }
     } else if (arg === '--model' || arg === '-m') {
       i++;
       modelFromCLI = args[i];
@@ -322,9 +362,15 @@ function parseArgs(args: string[]): {
     i++;
   }
 
-  // Resolve model alias if provided via CLI
+  // Determine provider (CLI flag or auto-detect)
+  const provider = options.provider || detectProvider();
+
+  // Resolve model alias if provided via CLI, using provider-specific aliases
   if (modelFromCLI) {
-    options.model = resolveModelAlias(modelFromCLI);
+    options.model = resolveProviderModelAlias(modelFromCLI, provider);
+  } else {
+    // Get default model for the provider
+    options.model = getDefaultModel({ provider });
   }
 
   return { command, target, options };
@@ -359,11 +405,15 @@ function createProgressCallback(progressTracker: ProgressTracker): (progress: RL
 async function runCommand(
   command: string,
   target: string | undefined,
-  options: { dir: string; model: string; verbose: boolean; json: boolean; output: string | null; grounding: boolean }
+  options: { dir: string; model: string; provider: ProviderName | undefined; verbose: boolean; json: boolean; output: string | null; grounding: boolean }
 ): Promise<void> {
   const startTime = Date.now();
 
+  // Initialize provider
+  const provider = initializeProvider(options.provider);
+
   log(`\nAnalyzing: ${options.dir}`, 'dim');
+  log(`Provider: ${provider.name}`, 'dim');
   log(`Model: ${options.model}`, 'dim');
   log(`Command: ${command}${target ? ` ${target}` : ''}`, 'dim');
   if (options.output) {
@@ -478,6 +528,7 @@ async function runCommand(
   }
 
   log('\n' + '─'.repeat(50), 'dim');
+  log(`Provider: ${provider.name}`, 'dim');
   log(`Files analyzed: ${result.filesAnalyzed.length}`, 'dim');
   log(`Turns: ${result.turns.length}`, 'dim');
   log(`Sub-LLM calls: ${result.subCallCount}`, 'dim');
@@ -486,7 +537,7 @@ async function runCommand(
   // Save to markdown file if output option specified
   if (options.output) {
     const outputPath = path.isAbsolute(options.output) ? options.output : path.join(options.dir, options.output);
-    const markdown = generateMarkdownReport(command, target, options.dir, result, duration);
+    const markdown = generateMarkdownReport(command, target, options.dir, result, duration, provider.name);
     try {
       fs.writeFileSync(outputPath, markdown, 'utf-8');
       log(`\n✓ Results saved to: ${outputPath}`, 'green');
@@ -504,7 +555,8 @@ function generateMarkdownReport(
   target: string | undefined,
   directory: string,
   result: { success: boolean; answer: string | null; filesAnalyzed: string[]; turns: RLMTurn[]; subCallCount: number; error?: string },
-  duration: string
+  duration: string,
+  provider: string
 ): string {
   const timestamp = new Date().toISOString().split('T')[0];
   const dirName = path.basename(directory);
@@ -516,6 +568,7 @@ function generateMarkdownReport(
   md += `| Property | Value |\n`;
   md += `|----------|-------|\n`;
   md += `| Command | \`${command}${target ? ` ${target}` : ''}\` |\n`;
+  md += `| Provider | ${provider} |\n`;
   md += `| Directory | \`${directory}\` |\n`;
   md += `| Files Analyzed | ${result.filesAnalyzed.length} |\n`;
   md += `| Turns | ${result.turns.length} |\n`;
@@ -544,69 +597,51 @@ function generateMarkdownReport(
     md += '\n';
   }
 
-  md += `---\n*Analysis performed with RLM Analyzer v1.3.4*\n`;
+  md += `---\n*Analysis performed with RLM Analyzer v1.4.0 using ${provider} provider*\n`;
 
   return md;
 }
 
 /**
- * Test Gemini API connection directly
+ * Test API connection for the configured provider
  */
-async function testConnection(model: string): Promise<void> {
-  log('\nTesting Gemini API connection...', 'cyan');
+async function testConnection(model: string, providerOverride?: ProviderName): Promise<void> {
+  // Initialize provider
+  const provider = initializeProvider(providerOverride);
+
+  log(`\nTesting ${provider.name} API connection...`, 'cyan');
   log(`Model: ${model}`, 'dim');
 
   try {
-    const { getAIClient } = await import('./config.js');
-    const ai = getAIClient();
-
     log('Sending test request...', 'dim');
 
-    const response = await ai.models.generateContent({
-      model,
-      contents: 'Say "Hello, RLM Analyzer!" and nothing else.',
-      config: {
-        temperature: 0.1,
-        maxOutputTokens: 50,
-      },
-    });
+    const success = await provider.testConnection();
 
-    if (response.text) {
-      log(`\n✓ API connection successful!`, 'green');
-      log(`Response: ${response.text}`, 'reset');
+    if (success) {
+      log(`\n✓ ${provider.name} API connection successful!`, 'green');
     } else {
-      log(`\n✗ No response text received`, 'yellow');
-      log(`Full response: ${JSON.stringify(response, null, 2)}`, 'dim');
+      log(`\n✗ ${provider.name} connection test failed`, 'yellow');
     }
   } catch (error: unknown) {
     log(`\n✗ API connection failed!`, 'red');
 
     if (error instanceof Error) {
       log(`Error: ${error.message}`, 'red');
-
-      // Try to extract more details from the error
-      const errorObj = error as unknown as Record<string, unknown>;
-      if (errorObj.cause) {
-        log(`Cause: ${JSON.stringify(errorObj.cause)}`, 'dim');
-      }
-      if (errorObj.status) {
-        log(`Status: ${errorObj.status}`, 'dim');
-      }
-      if (errorObj.statusText) {
-        log(`Status Text: ${errorObj.statusText}`, 'dim');
-      }
-      if (errorObj.response) {
-        log(`Response: ${JSON.stringify(errorObj.response)}`, 'dim');
-      }
     } else {
       log(`Error: ${String(error)}`, 'red');
     }
 
     log('\nTroubleshooting tips:', 'yellow');
-    log('1. Verify your API key is correct', 'dim');
-    log('2. Try a different model: --model gemini-2.0-flash-exp', 'dim');
-    log('3. Check if your API key has access to the model', 'dim');
-    log('4. Visit https://aistudio.google.com to verify API access', 'dim');
+    if (provider.name === 'gemini') {
+      log('1. Verify your GEMINI_API_KEY is correct', 'dim');
+      log('2. Try a different model: --model gemini-2.0-flash-exp', 'dim');
+      log('3. Visit https://aistudio.google.com to verify API access', 'dim');
+    } else if (provider.name === 'bedrock') {
+      log('1. Verify your AWS credentials are configured', 'dim');
+      log('2. Check that you have access to Bedrock in your region', 'dim');
+      log('3. Try: AWS_PROFILE=your_profile rlm test --provider bedrock', 'dim');
+      log('4. Ensure the model is enabled in your AWS account', 'dim');
+    }
   }
 }
 
@@ -616,61 +651,96 @@ export async function runCli(): Promise<void> {
 
   // Show version
   if (options.version) {
-    console.log('rlm-analyzer v1.3.4');
+    console.log('rlm-analyzer v1.4.0');
     process.exit(0);
   }
 
   // Show help
   if (options.help || !command) {
-    printHelp();
+    printHelp(options.provider);
     process.exit(0);
   }
 
   // Handle test command
   if (command === 'test') {
-    if (!hasApiKey()) {
-      log('Error: API key not configured', 'red');
+    const provider = options.provider || detectProvider();
+    if (provider === 'gemini' && !hasApiKey()) {
+      log('Error: Gemini API key not configured', 'red');
       log('Run: rlm config YOUR_API_KEY', 'cyan');
       process.exit(1);
     }
-    await testConnection(options.model);
+    if (provider === 'bedrock' && !hasBedrockCredentials()) {
+      log('Error: AWS credentials not configured for Bedrock', 'red');
+      log('Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY, or AWS_PROFILE', 'cyan');
+      process.exit(1);
+    }
+    await testConnection(options.model, options.provider);
     process.exit(0);
   }
 
   // Handle config command
   if (command === 'config') {
     if (target) {
-      initConfig(target);
-      log('API key saved successfully!', 'green');
+      initConfig(target, options.provider);
+      log('Configuration saved successfully!', 'green');
     } else {
+      const detectedProvider = detectProvider();
+      log(`Current provider: ${detectedProvider}`, 'cyan');
+
       if (hasApiKey()) {
-        log('API key is configured', 'green');
+        log('Gemini API key: configured', 'green');
         try {
           const key = getApiKey();
-          log(`Key: ${key.slice(0, 8)}...${key.slice(-4)}`, 'dim');
+          log(`  Key: ${key.slice(0, 8)}...${key.slice(-4)}`, 'dim');
         } catch {
           // Ignore
         }
       } else {
-        log('API key not configured', 'yellow');
-        log('\nTo configure, run:', 'reset');
-        log('  rlm config YOUR_GEMINI_API_KEY', 'cyan');
-        log('\nOr set environment variable:', 'reset');
-        log('  export GEMINI_API_KEY=your_key', 'cyan');
+        log('Gemini API key: not configured', 'yellow');
       }
+
+      if (hasBedrockCredentials()) {
+        log('AWS credentials: configured', 'green');
+        if (process.env.AWS_PROFILE) {
+          log(`  Profile: ${process.env.AWS_PROFILE}`, 'dim');
+        }
+        if (process.env.AWS_REGION) {
+          log(`  Region: ${process.env.AWS_REGION}`, 'dim');
+        }
+      } else {
+        log('AWS credentials: not configured', 'yellow');
+      }
+
+      log('\nTo configure Gemini:', 'reset');
+      log('  rlm config YOUR_GEMINI_API_KEY', 'cyan');
+      log('\nTo configure Bedrock:', 'reset');
+      log('  export AWS_ACCESS_KEY_ID=your_key', 'cyan');
+      log('  export AWS_SECRET_ACCESS_KEY=your_secret', 'cyan');
     }
     process.exit(0);
   }
 
-  // Check API key
-  if (!hasApiKey()) {
+  // Check credentials for the selected provider
+  const provider = options.provider || detectProvider();
+  if (provider === 'gemini' && !hasApiKey()) {
     log('Error: Gemini API key not configured', 'red');
     log('\nTo configure, run:', 'reset');
     log('  rlm config YOUR_GEMINI_API_KEY', 'cyan');
     log('\nOr set environment variable:', 'reset');
     log('  export GEMINI_API_KEY=your_key', 'cyan');
     log('\nGet your API key at:', 'reset');
-    log('  https://makersuite.google.com/app/apikey', 'blue');
+    log('  https://aistudio.google.com/apikey', 'blue');
+    process.exit(1);
+  }
+
+  if (provider === 'bedrock' && !hasBedrockCredentials()) {
+    log('Error: AWS credentials not configured for Bedrock', 'red');
+    log('\nTo configure, set environment variables:', 'reset');
+    log('  export AWS_ACCESS_KEY_ID=your_key', 'cyan');
+    log('  export AWS_SECRET_ACCESS_KEY=your_secret', 'cyan');
+    log('  export AWS_REGION=us-east-1', 'cyan');
+    log('\nOr use an AWS profile:', 'reset');
+    log('  export AWS_PROFILE=your_profile', 'cyan');
     process.exit(1);
   }
 

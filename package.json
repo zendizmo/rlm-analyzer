@@ -1,6 +1,6 @@
 {
   "name": "rlm-analyzer",
-  "version": "1.5.1",
+  "version": "1.6.0",
   "description": "AI-powered code analysis using Recursive Language Models (RLMs). Analyze entire codebases 100x beyond context limits with deep architecture, security, and refactoring analysis. Supports Gemini and Amazon Bedrock.",
   "type": "module",
   "main": "dist/index.js",

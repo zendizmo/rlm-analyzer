@@ -4,7 +4,7 @@
  */
 
 /** Supported provider names */
-export type ProviderName = 'gemini' | 'bedrock';
+export type ProviderName = 'gemini' | 'bedrock' | 'claude';
 
 /** Standardized message format for conversations */
 export interface Message {
@@ -32,12 +32,28 @@ export interface GroundingMetadata {
   sources?: string[];
 }
 
+/** Token usage information */
+export interface TokenUsage {
+  /** Number of input/prompt tokens */
+  inputTokens: number;
+  /** Number of output/completion tokens */
+  outputTokens: number;
+  /** Total tokens (input + output) */
+  totalTokens: number;
+  /** Cache creation tokens (Claude-specific) */
+  cacheCreationTokens?: number;
+  /** Cache read tokens (Claude-specific) */
+  cacheReadTokens?: number;
+}
+
 /** Response from text generation */
 export interface GenerateResponse {
   /** Generated text content */
   text: string;
   /** Grounding/citation metadata if web search was used */
   groundingMetadata?: GroundingMetadata;
+  /** Token usage information (if available from provider) */
+  usage?: TokenUsage;
 }
 
 /** Provider configuration */

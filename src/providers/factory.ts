@@ -6,6 +6,7 @@
 import type { LLMProvider, ProviderName, ProviderConfig } from './types.js';
 import { GeminiProvider } from './gemini.js';
 import { BedrockProvider } from './bedrock.js';
+import { ClaudeProvider } from './claude.js';
 
 /** Cached provider instance */
 let cachedProvider: LLMProvider | null = null;
@@ -31,6 +32,14 @@ export function createProvider(config: ProviderConfig): LLMProvider {
         region: config.region,
         profile: config.profile,
         apiKey: config.apiKey, // Bedrock API key (AWS_BEARER_TOKEN_BEDROCK)
+      });
+
+    case 'claude':
+      if (!config.apiKey) {
+        throw new Error('Claude provider requires an API key');
+      }
+      return new ClaudeProvider({
+        apiKey: config.apiKey,
       });
 
     default:

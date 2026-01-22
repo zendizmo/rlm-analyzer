@@ -1,6 +1,6 @@
 /**
  * Amazon Bedrock Provider Implementation
- * Uses the Converse API with support for Nova Premier web grounding
+ * Uses the Converse API with support for Nova 2 web grounding
  *
  * Authentication options (in priority order):
  * 1. Bedrock API Key: AWS_BEARER_TOKEN_BEDROCK env var or apiKey option
@@ -20,11 +20,15 @@ import type {
   GroundingMetadata,
 } from './types.js';
 
-/** Default model for Bedrock provider */
-const DEFAULT_BEDROCK_MODEL = 'amazon.nova-lite-v1:0';
+/**
+ * Default model for Bedrock provider
+ * Can be overridden via RLM_DEFAULT_MODEL env var or --model flag
+ * Using Nova 2 Lite as default (latest Nova, requires inference profile)
+ */
+const DEFAULT_BEDROCK_MODEL = 'us.amazon.nova-2-lite-v1:0';
 
-/** Model that supports web grounding (Nova Premier) */
-const GROUNDING_MODEL = 'us.amazon.nova-premier-v1:0';
+/** Model that supports web grounding (Nova 2 Lite) */
+const GROUNDING_MODEL = 'us.amazon.nova-2-lite-v1:0';
 
 /** Default AWS region */
 const DEFAULT_REGION = 'us-east-1';
@@ -97,7 +101,7 @@ function messagesToBedrockFormat(messages: Message[]): {
 
 /**
  * Extract grounding metadata from Bedrock response
- * Nova Premier includes citations in content[].citationsContent
+ * Nova 2 models include citations in content[].citationsContent
  */
 function extractGroundingMetadata(response: unknown): GroundingMetadata | undefined {
   // Type-safe extraction from response.output.message.content
@@ -240,12 +244,12 @@ export class BedrockProvider implements LLMProvider {
       },
     };
 
-    // Add web grounding tool for Nova Premier if enabled
+    // Add web grounding tool for Nova 2 models if enabled
     if (options?.enableWebGrounding) {
       commandInput.toolConfig = {
         tools: [
           {
-            // Nova Premier web grounding system tool
+            // Nova 2 web grounding system tool
             systemTool: { name: 'nova_grounding' },
           },
         ],
@@ -306,7 +310,7 @@ export class BedrockProvider implements LLMProvider {
       commandInput.system = system;
     }
 
-    // Add web grounding tool for Nova Premier if enabled
+    // Add web grounding tool for Nova 2 models if enabled
     if (options?.enableWebGrounding) {
       commandInput.toolConfig = {
         tools: [
@@ -338,7 +342,7 @@ export class BedrockProvider implements LLMProvider {
   }
 
   supportsWebGrounding(): boolean {
-    // Nova Premier supports web grounding
+    // Nova 2 models support web grounding
     return true;
   }
 

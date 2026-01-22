@@ -5,7 +5,7 @@
 [![npm version](https://badge.fury.io/js/rlm-analyzer.svg)](https://www.npmjs.com/package/rlm-analyzer)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Analyze any codebase with AI that can process **100x beyond context limits**. Powered by **Gemini 3** or **Amazon Bedrock (Nova/Claude)** and based on MIT CSAIL research on [Recursive Language Models](https://arxiv.org/abs/2512.24601).
+Analyze any codebase with AI that can process **100x beyond context limits**. Powered by **Gemini 3**, **Amazon Bedrock (Nova/Claude/Llama)**, or **Claude (Anthropic API)** and based on MIT CSAIL research on [Recursive Language Models](https://arxiv.org/abs/2512.24601).
 
 ## Features
 
@@ -16,7 +16,7 @@ Analyze any codebase with AI that can process **100x beyond context limits**. Po
 - **Refactoring Suggestions** - Identifies code smells and improvements
 - **Symbol Search** - Find all usages of functions, classes, variables
 - **Custom Questions** - Ask anything about your codebase
-- **Multi-Provider Support** - Choose between Gemini (default) or Amazon Bedrock (Nova/Claude)
+- **Multi-Provider Support** - Choose between Gemini (default), Amazon Bedrock (Nova/Claude/Llama), or Claude (Anthropic API)
 - **Web Grounding** - Verify package versions with real-time web search (Gemini & Nova Premier)
 - **MCP Integration** - Works with Claude Code, Cursor, and other MCP clients
 - **Cost Efficient** - Save 60-73% on API costs by offloading to Gemini/Nova
@@ -35,6 +35,11 @@ Analyze any codebase with AI that can process **100x beyond context limits**. Po
 - [How It Works](#how-it-works)
 - [Cost Savings](#cost-savings-with-mcp-integration)
 - [Troubleshooting](#troubleshooting)
+
+## Documentation
+
+- **[How It Works](docs/how-it-works.md)** - Deep dive into RLM architecture, recursive analysis, and token optimization
+- **[Models & Commands Reference](docs/models-and-commands.md)** - Complete list of CLI commands, model IDs, and aliases for Gemini, Bedrock, and Claude
 
 ---
 
@@ -104,6 +109,14 @@ export AWS_REGION=us-east-1
 aws configure
 ```
 
+#### Option C: Claude (Anthropic API)
+
+Get your API key from [Anthropic Console](https://console.anthropic.com/), then:
+
+```bash
+export ANTHROPIC_API_KEY=your_api_key
+```
+
 ### 2. Analyze Your Code
 
 ```bash
@@ -112,6 +125,9 @@ rlm summary
 
 # Use Amazon Bedrock instead
 rlm summary --provider bedrock
+
+# Use Claude (Anthropic API) instead
+rlm summary --provider claude
 
 # Analyze architecture
 rlm arch
@@ -149,7 +165,7 @@ rlm ask "How does authentication work?"
 |--------|-------------|
 | `--dir, -d <path>` | Directory to analyze (default: current) |
 | `--model, -m <name>` | Model to use (see [Model Configuration](#model-configuration)) |
-| `--provider, -p <name>` | LLM provider: `gemini` (default) or `bedrock` |
+| `--provider, -p <name>` | LLM provider: `gemini` (default), `bedrock`, or `claude` |
 | `--grounding` | Enable web grounding for security analysis |
 | `--output, -o <file>` | Save results to a markdown file |
 | `--verbose, -v` | Show detailed turn-by-turn output |
@@ -168,8 +184,11 @@ rlm summary --model smart
 # Use Amazon Bedrock with Nova Pro
 rlm summary --provider bedrock --model smart
 
-# Use Bedrock with Claude
+# Use Bedrock with Claude (via AWS)
 rlm arch --provider bedrock --model claude-sonnet
+
+# Use Claude directly (Anthropic API)
+rlm arch --provider claude --model sonnet
 
 # Find all usages of a function
 rlm find "handleSubmit"
@@ -450,23 +469,24 @@ const relevantMemories = attention.filterByAttention(memories, 10);
 
 #### Gemini Models (Default Provider)
 
-| Model ID | Alias | Description |
-|----------|-------|-------------|
-| `gemini-3-flash-preview` | `fast`, `flash`, `default` | Fast and efficient (recommended) |
-| `gemini-3-pro-preview` | `smart`, `pro` | Most capable |
-| `gemini-2.5-flash` | `flash-2.5` | Stable release |
-| `gemini-2.0-flash-exp` | `flash-2` | Fallback option |
+| Alias | Model ID | Description |
+|-------|----------|-------------|
+| `fast`, `default` | `gemini-3-flash-preview` | Fast and efficient (recommended) |
+| `smart`, `pro` | `gemini-3-pro-preview` | Most capable |
 
 #### Amazon Bedrock Models
 
-| Model ID | Alias | Description |
-|----------|-------|-------------|
-| `amazon.nova-lite-v1:0` | `fast`, `nova-lite` | Fast, cost-effective |
-| `amazon.nova-pro-v1:0` | `smart`, `nova-pro` | Balanced performance |
-| `us.amazon.nova-premier-v1:0` | `premier`, `grounding` | Most capable, supports web grounding |
-| `anthropic.claude-3-haiku-*` | `claude-haiku` | Fast Claude model |
-| `anthropic.claude-3-sonnet-*` | `claude-sonnet` | Balanced Claude model |
-| `anthropic.claude-3-opus-*` | `claude-opus` | Most capable Claude model |
+| Alias | Model ID | Description |
+|-------|----------|-------------|
+| `fast`, `default` | `us.amazon.nova-2-lite-v1:0` | Nova 2 Lite (default) |
+| `smart` | `us.anthropic.claude-sonnet-4-5-*` | Claude 4.5 Sonnet |
+| `claude-sonnet` | `us.anthropic.claude-sonnet-4-5-*` | Claude 4.5 Sonnet |
+| `claude-opus` | `us.anthropic.claude-opus-4-5-*` | Claude 4.5 Opus |
+| `qwen3-coder` | `qwen.qwen3-coder-30b-*` | Qwen3 Coder - Best for coding |
+| `gpt-oss` | `openai.gpt-oss-120b-*` | OpenAI GPT OSS |
+| `llama-4` | `us.meta.llama4-maverick-*` | Llama 4 |
+
+> **[See all models and aliases →](docs/models-and-commands.md)**
 
 ### Configuration Priority
 
@@ -657,31 +677,42 @@ target, .idea, .vscode, coverage, .nyc_output
 
 ## How It Works
 
-RLM Analyzer uses Recursive Language Models (RLMs) to analyze codebases that exceed traditional context limits:
+RLM Analyzer uses Recursive Language Models (RLMs) to analyze codebases that exceed traditional context limits.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                      RLM Orchestrator                       │
-├─────────────────────────────────────────────────────────────┤
-│  1. File Loading      Load codebase into virtual env        │
-│  2. REPL Execution    AI writes code to explore files       │
-│  3. Sub-LLM Calls     Delegate analysis to specialized      │
-│                       sub-queries (llm_query)               │
-│  4. Context Mgmt      Compress, optimize, detect rot        │
-│  5. Synthesis         Combine findings into final answer    │
+│                      User Query                              │
 └─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                    Orchestrator (Main LLM)                   │
+│  • Sees file tree, decides which files to read              │
+│  • Spawns Sub-LLMs for deep analysis                        │
+└─────────────────────────────────────────────────────────────┘
+                              │
+              ┌───────────────┼───────────────┐
+              ▼               ▼               ▼
+        ┌──────────┐   ┌──────────┐   ┌──────────┐
+        │ Sub-LLM  │   │ Sub-LLM  │   │ Sub-LLM  │
+        └──────────┘   └──────────┘   └──────────┘
+              │               │               │
+              └───────────────┼───────────────┘
+                              ▼
+                        Final Answer
 ```
 
-### The RLM Approach
+### Key Concepts
 
-1. **File Loading** - Loads your codebase into a virtual file index
-2. **REPL Execution** - AI writes and executes Python-like code to explore files
-3. **Sub-LLM Calls** - Complex analysis delegated via `llm_query()` function
-4. **Context Management** - Compression, sliding window, memory bank
-5. **Iterative Refinement** - Multiple turns until `FINAL()` is called
-6. **Final Answer** - Synthesized analysis based on deep exploration
+1. **Recursive Analysis** - Main LLM spawns sub-LLMs to analyze files in parallel
+2. **Context Optimization** - Shows file tree first, LLM requests only needed files
+3. **Multi-turn Conversation** - Multiple turns to read, analyze, and refine
+4. **Memory Bank** - Tracks findings to prevent "context rot"
+5. **Adaptive Compression** - Compresses older context as usage increases
 
 This enables analysis of codebases **100x larger** than traditional context windows.
+
+> **[Read the full technical deep-dive →](docs/how-it-works.md)**
 
 ---
 

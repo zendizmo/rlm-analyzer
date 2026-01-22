@@ -2,7 +2,7 @@
 /**
  * RLM Analyzer MCP Server
  * Exposes RLM analysis capabilities via Model Context Protocol
- * Supports both Gemini and Amazon Bedrock providers
+ * Supports Gemini, Amazon Bedrock, and Claude (Anthropic) providers
  *
  * Usage with Claude Code:
  * Add to ~/.claude/claude_desktop_config.json:
@@ -33,6 +33,20 @@
  *     }
  *   }
  * }
+ *
+ * For Claude (Anthropic):
+ * {
+ *   "mcpServers": {
+ *     "rlm-analyzer": {
+ *       "command": "npx",
+ *       "args": ["rlm-analyzer-mcp"],
+ *       "env": {
+ *         "RLM_PROVIDER": "claude",
+ *         "ANTHROPIC_API_KEY": "your_key"
+ *       }
+ *     }
+ *   }
+ * }
  */
 
 import { fileURLToPath } from 'url';
@@ -55,15 +69,15 @@ import {
   askQuestion,
 } from './analyzer.js';
 import { resolveModelConfig, resolveProviderModelAlias, getProviderAliasesDisplay } from './models.js';
-import { hasApiKey, hasAnyCredentials, initializeProvider, hasBedrockCredentials } from './config.js';
+import { hasApiKey, hasAnyCredentials, initializeProvider, hasBedrockCredentials, hasClaudeCredentials } from './config.js';
 import type { AnalysisType } from './types.js';
 import type { ProviderName } from './providers/types.js';
 
 // Provider parameter common to all analysis tools
 const PROVIDER_PARAM = {
   type: 'string',
-  enum: ['gemini', 'bedrock'],
-  description: 'LLM provider to use (default: gemini). Bedrock requires AWS credentials.',
+  enum: ['gemini', 'bedrock', 'claude'],
+  description: 'LLM provider to use (default: gemini). Bedrock requires AWS credentials. Claude requires ANTHROPIC_API_KEY.',
 };
 
 // Tool definitions
@@ -245,9 +259,14 @@ server.setRequestHandler(CallToolRequestSchema, async (request): Promise<CallToo
 
     // Check credentials for analysis tools
     if (name !== 'rlm_config' && !hasAnyCredentials()) {
-      const errorMsg = provider === 'bedrock'
-        ? 'Error: AWS credentials not configured. Set AWS_BEARER_TOKEN_BEDROCK (recommended), or AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY, or AWS_PROFILE.'
-        : 'Error: GEMINI_API_KEY not configured. Set it in the MCP server environment.';
+      let errorMsg: string;
+      if (provider === 'bedrock') {
+        errorMsg = 'Error: AWS credentials not configured. Set AWS_BEARER_TOKEN_BEDROCK (recommended), or AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY, or AWS_PROFILE.';
+      } else if (provider === 'claude') {
+        errorMsg = 'Error: Claude API key not configured. Set ANTHROPIC_API_KEY in the MCP server environment.';
+      } else {
+        errorMsg = 'Error: GEMINI_API_KEY not configured. Set it in the MCP server environment.';
+      }
       return {
         content: [{
           type: 'text',
@@ -392,8 +411,10 @@ server.setRequestHandler(CallToolRequestSchema, async (request): Promise<CallToo
       case 'rlm_config': {
         const geminiConfig = resolveModelConfig({ provider: 'gemini' });
         const bedrockConfig = resolveModelConfig({ provider: 'bedrock' });
+        const claudeConfig = resolveModelConfig({ provider: 'claude' });
         const geminiStatus = hasApiKey() ? 'configured' : 'NOT CONFIGURED';
         const bedrockStatus = hasBedrockCredentials() ? 'configured' : 'NOT CONFIGURED';
+        const claudeStatus = hasClaudeCredentials() ? 'configured' : 'NOT CONFIGURED';
 
         return {
           content: [{
@@ -413,6 +434,13 @@ Bedrock Provider:
 - Fallback Model: ${bedrockConfig.fallbackModel} (source: ${bedrockConfig.fallbackSource})
 - Aliases:
 ${getProviderAliasesDisplay('bedrock')}
+
+Claude Provider:
+- API Key: ${claudeStatus}
+- Default Model: ${claudeConfig.defaultModel} (source: ${claudeConfig.defaultSource})
+- Fallback Model: ${claudeConfig.fallbackModel} (source: ${claudeConfig.fallbackSource})
+- Aliases:
+${getProviderAliasesDisplay('claude')}
 
 Use 'provider' parameter to switch between providers.`,
           }],

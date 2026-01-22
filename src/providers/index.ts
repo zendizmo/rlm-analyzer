@@ -1,6 +1,6 @@
 /**
  * Provider Module Exports
- * LLM provider abstraction layer supporting Gemini and Bedrock
+ * LLM provider abstraction layer supporting Gemini, Bedrock, and Claude
  */
 
 // Types
@@ -10,6 +10,7 @@ export type {
   GenerateOptions,
   GenerateResponse,
   GroundingMetadata,
+  TokenUsage,
   ProviderConfig,
   LLMProvider,
 } from './types.js';
@@ -17,6 +18,7 @@ export type {
 // Provider implementations
 export { GeminiProvider } from './gemini.js';
 export { BedrockProvider } from './bedrock.js';
+export { ClaudeProvider } from './claude.js';
 
 // Factory functions
 export {

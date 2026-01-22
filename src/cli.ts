@@ -2,7 +2,7 @@
 /**
  * RLM Analyzer CLI
  * Command-line interface for code analysis
- * Supports multiple providers: Gemini (default) and Amazon Bedrock
+ * Supports multiple providers: Gemini (default), Amazon Bedrock, and Claude
  *
  * Usage:
  *   rlm <command> [options]
@@ -21,7 +21,7 @@
  *
  * Options:
  *   --dir, -d      Directory to analyze (default: current)
- *   --provider, -p Provider to use (gemini|bedrock)
+ *   --provider, -p Provider to use (gemini|bedrock|claude)
  *   --verbose, -v  Show detailed output
  *   --json         Output as JSON
  *   --help, -h     Show help
@@ -42,6 +42,7 @@ import {
 import {
   hasApiKey,
   hasBedrockCredentials,
+  hasClaudeCredentials,
   initConfig,
   getApiKey,
   initializeProvider,
@@ -54,6 +55,7 @@ import {
   resolveProviderModelAlias,
   AVAILABLE_MODELS,
   AVAILABLE_BEDROCK_MODELS,
+  AVAILABLE_CLAUDE_MODELS,
   getAliasesDisplay,
 } from './models.js';
 import type { RLMTurn, RLMProgress } from './types.js';
@@ -161,7 +163,11 @@ function printHelp(provider?: ProviderName): void {
   const defaultModel = modelConfig.defaultModel;
 
   // Format available models based on provider
-  const availableModels = currentProvider === 'bedrock' ? AVAILABLE_BEDROCK_MODELS : AVAILABLE_MODELS;
+  const availableModels = currentProvider === 'bedrock'
+    ? AVAILABLE_BEDROCK_MODELS
+    : currentProvider === 'claude'
+      ? AVAILABLE_CLAUDE_MODELS
+      : AVAILABLE_MODELS;
   const modelsDisplay = availableModels.map(m => {
     const isDefault = m.id === defaultModel;
     const marker = isDefault ? ' (current default)' : '';
@@ -189,10 +195,11 @@ ${colors.bold}Commands:${colors.reset}
 
 ${colors.bold}Options:${colors.reset}
   --dir, -d <path>      Directory to analyze (default: current directory)
-  --provider, -p <name> LLM provider to use: gemini (default) or bedrock
+  --provider, -p <name> LLM provider to use: gemini (default), bedrock, or claude
   --model, -m <name>    Model to use (default: ${defaultModel})
-                        Can use aliases: fast, smart, pro, flash (gemini)
-                        Or: nova-lite, nova-pro, nova-premier (bedrock)
+                        Aliases: fast, smart, pro, flash (gemini)
+                        Aliases: nova-lite, claude-sonnet, llama-4 (bedrock)
+                        Aliases: sonnet, opus, haiku (claude)
   --output, -o <file>   Save results to markdown file (e.g., rlm-context.md)
   --grounding, -g       Enable web grounding to verify package versions (security only)
   --verbose, -v         Show detailed turn-by-turn output
@@ -252,10 +259,16 @@ ${colors.bold}Configuration:${colors.reset}
     3. Or use AWS profile: ${colors.cyan}export AWS_PROFILE=your_profile${colors.reset}
     4. Then: ${colors.cyan}rlm summary --provider bedrock${colors.reset}
 
+  ${colors.cyan}Claude (Anthropic):${colors.reset}
+    1. Set: ${colors.cyan}export ANTHROPIC_API_KEY=your_key${colors.reset}
+    2. Then: ${colors.cyan}rlm summary --provider claude${colors.reset}
+    3. Get key at: ${colors.blue}https://console.anthropic.com/${colors.reset}
+
 ${colors.bold}Environment Variables:${colors.reset}
-  RLM_PROVIDER              Default provider (gemini|bedrock)
+  RLM_PROVIDER              Default provider (gemini|bedrock|claude)
   RLM_DEFAULT_MODEL         Default model alias or ID
   GEMINI_API_KEY            Gemini API key
+  ANTHROPIC_API_KEY         Claude API key (Anthropic)
   AWS_BEARER_TOKEN_BEDROCK  Bedrock API key (recommended)
   AWS_ACCESS_KEY_ID         AWS access key (for Bedrock)
   AWS_SECRET_ACCESS_KEY     AWS secret key (for Bedrock)
@@ -328,17 +341,17 @@ function parseArgs(args: string[]): {
     } else if (arg === '--provider' || arg === '-p') {
       i++;
       const p = args[i]?.toLowerCase();
-      if (p === 'gemini' || p === 'bedrock') {
+      if (p === 'gemini' || p === 'bedrock' || p === 'claude') {
         options.provider = p;
       }
     } else if (arg.startsWith('--provider=')) {
       const p = arg.slice(11).toLowerCase();
-      if (p === 'gemini' || p === 'bedrock') {
+      if (p === 'gemini' || p === 'bedrock' || p === 'claude') {
         options.provider = p as ProviderName;
       }
     } else if (arg.startsWith('-p=')) {
       const p = arg.slice(3).toLowerCase();
-      if (p === 'gemini' || p === 'bedrock') {
+      if (p === 'gemini' || p === 'bedrock' || p === 'claude') {
         options.provider = p as ProviderName;
       }
     } else if (arg === '--model' || arg === '-m') {
@@ -645,6 +658,11 @@ async function testConnection(model: string, providerOverride?: ProviderName): P
       log('2. Check that you have access to Bedrock in your region', 'dim');
       log('3. Try: AWS_PROFILE=your_profile rlm test --provider bedrock', 'dim');
       log('4. Ensure the model is enabled in your AWS account', 'dim');
+    } else if (provider.name === 'claude') {
+      log('1. Verify your ANTHROPIC_API_KEY is correct', 'dim');
+      log('2. Try a different model: --model claude-3-haiku', 'dim');
+      log('3. Visit https://console.anthropic.com to verify API access', 'dim');
+      log('4. Check your API key has sufficient credits', 'dim');
     }
   }
 }
@@ -676,6 +694,11 @@ export async function runCli(): Promise<void> {
     if (provider === 'bedrock' && !hasBedrockCredentials()) {
       log('Error: AWS credentials not configured for Bedrock', 'red');
       log('Set AWS_BEARER_TOKEN_BEDROCK (recommended), or AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY, or AWS_PROFILE', 'cyan');
+      process.exit(1);
+    }
+    if (provider === 'claude' && !hasClaudeCredentials()) {
+      log('Error: Claude API key not configured', 'red');
+      log('Set ANTHROPIC_API_KEY or CLAUDE_API_KEY environment variable', 'cyan');
       process.exit(1);
     }
     await testConnection(options.model, options.provider);
@@ -715,6 +738,16 @@ export async function runCli(): Promise<void> {
         log('AWS credentials: not configured', 'yellow');
       }
 
+      if (hasClaudeCredentials()) {
+        log('Claude API key: configured', 'green');
+        const key = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY;
+        if (key) {
+          log(`  Key: ${key.slice(0, 8)}...${key.slice(-4)}`, 'dim');
+        }
+      } else {
+        log('Claude API key: not configured', 'yellow');
+      }
+
       log('\nTo configure Gemini:', 'reset');
       log('  rlm config YOUR_GEMINI_API_KEY', 'cyan');
       log('\nTo configure Bedrock (choose one):', 'reset');
@@ -722,6 +755,8 @@ export async function runCli(): Promise<void> {
       log('  # Or use AWS access keys:', 'dim');
       log('  export AWS_ACCESS_KEY_ID=your_key', 'cyan');
       log('  export AWS_SECRET_ACCESS_KEY=your_secret', 'cyan');
+      log('\nTo configure Claude:', 'reset');
+      log('  export ANTHROPIC_API_KEY=your_api_key', 'cyan');
     }
     process.exit(0);
   }
@@ -750,6 +785,15 @@ export async function runCli(): Promise<void> {
     log('  export AWS_REGION=us-east-1', 'cyan');
     log('\nOption 3 - AWS Profile:', 'reset');
     log('  export AWS_PROFILE=your_profile', 'cyan');
+    process.exit(1);
+  }
+
+  if (provider === 'claude' && !hasClaudeCredentials()) {
+    log('Error: Claude API key not configured', 'red');
+    log('\nTo configure Claude:', 'reset');
+    log('  export ANTHROPIC_API_KEY=your_api_key', 'cyan');
+    log('\nGet your API key at:', 'reset');
+    log('  https://console.anthropic.com/', 'blue');
     process.exit(1);
   }
 

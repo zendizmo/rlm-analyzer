@@ -43,6 +43,10 @@ export const MODEL_ALIASES: Record<string, string> = {
 
 /**
  * Provider-specific model aliases
+ * Model IDs from:
+ * - Gemini: https://ai.google.dev/gemini-api/docs/models
+ * - Bedrock: https://docs.aws.amazon.com/bedrock/latest/userguide/models-supported.html
+ * - Claude: https://docs.anthropic.com/en/docs/about-claude/models
  */
 export const PROVIDER_MODEL_ALIASES: Record<ProviderName, Record<string, string>> = {
   gemini: {
@@ -56,17 +60,101 @@ export const PROVIDER_MODEL_ALIASES: Record<ProviderName, Record<string, string>
     grounding: 'gemini-3-flash-preview',
   },
   bedrock: {
-    fast: 'amazon.nova-lite-v1:0',
-    smart: 'amazon.nova-pro-v1:0',
-    default: 'amazon.nova-lite-v1:0',
-    premier: 'us.amazon.nova-premier-v1:0',
-    grounding: 'us.amazon.nova-premier-v1:0',
+    // Convenient aliases - Nova 2 Lite as default (latest Nova)
+    fast: 'us.amazon.nova-2-lite-v1:0',
+    smart: 'us.anthropic.claude-sonnet-4-5-20250929-v1:0',
+    default: 'us.amazon.nova-2-lite-v1:0',
+    grounding: 'us.amazon.nova-2-lite-v1:0',  // Nova 2 Lite supports web grounding
+
+    // Claude 4.5 (latest generation) - require inference profile (us. prefix)
+    'claude-4.5-sonnet': 'us.anthropic.claude-sonnet-4-5-20250929-v1:0',
+    'claude-4.5-opus': 'us.anthropic.claude-opus-4-5-20251101-v1:0',
+    'claude-4.5-haiku': 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
+    'claude-sonnet': 'us.anthropic.claude-sonnet-4-5-20250929-v1:0',
+    'claude-opus': 'us.anthropic.claude-opus-4-5-20251101-v1:0',
+    'claude-haiku': 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
+
+    // Claude 4.x - require inference profile
+    'claude-4-sonnet': 'us.anthropic.claude-sonnet-4-20250514-v1:0',
+    'claude-4.1-opus': 'us.anthropic.claude-opus-4-1-20250805-v1:0',
+
+    // Claude 3.5 - require inference profile
+    'claude-3.5-haiku': 'us.anthropic.claude-3-5-haiku-20241022-v1:0',
+
+    // Claude 3 - on-demand supported
+    'claude-3-haiku': 'anthropic.claude-3-haiku-20240307-v1:0',
+
+    // Amazon Nova - on-demand supported
+    'nova-micro': 'amazon.nova-micro-v1:0',
     'nova-lite': 'amazon.nova-lite-v1:0',
     'nova-pro': 'amazon.nova-pro-v1:0',
-    'nova-premier': 'us.amazon.nova-premier-v1:0',
-    'claude-haiku': 'anthropic.claude-3-haiku-20240307-v1:0',
-    'claude-sonnet': 'anthropic.claude-3-sonnet-20240229-v1:0',
-    'claude-opus': 'anthropic.claude-3-opus-20240229-v1:0',
+    'nova-premier': 'amazon.nova-premier-v1:0',
+
+    // Amazon Nova 2 - require inference profile (Nova 2 Pro is in preview only)
+    'nova-2-lite': 'us.amazon.nova-2-lite-v1:0',
+    'nova-sonic': 'us.amazon.nova-sonic-v1:0',
+    'nova-2-sonic': 'us.amazon.nova-2-sonic-v1:0',
+
+    // Meta Llama 4 - require inference profile
+    'llama-4-maverick': 'us.meta.llama4-maverick-17b-instruct-v1:0',
+    'llama-4-scout': 'us.meta.llama4-scout-17b-instruct-v1:0',
+    'llama-4': 'us.meta.llama4-maverick-17b-instruct-v1:0',
+
+    // Meta Llama 3.x - on-demand supported
+    'llama-3.3': 'meta.llama3-3-70b-instruct-v1:0',
+    'llama-3.2-90b': 'meta.llama3-2-90b-instruct-v1:0',
+    'llama-3.1-405b': 'meta.llama3-1-405b-instruct-v1:0',
+    'llama-3.1-70b': 'meta.llama3-1-70b-instruct-v1:0',
+
+    // Mistral - on-demand supported
+    'mistral-large': 'mistral.mistral-large-2407-v1:0',
+    'mistral-large-3': 'us.mistral.mistral-large-3-675b-instruct',
+    'magistral-small': 'us.mistral.magistral-small-2509',
+    'pixtral-large': 'us.mistral.pixtral-large-2502-v1:0',
+
+    // Qwen (Alibaba) - on-demand supported (no us. prefix)
+    'qwen3': 'qwen.qwen3-235b-a22b-2507-v1:0',
+    'qwen3-235b': 'qwen.qwen3-235b-a22b-2507-v1:0',
+    'qwen3-32b': 'qwen.qwen3-32b-v1:0',
+    'qwen3-coder': 'qwen.qwen3-coder-30b-a3b-v1:0',
+    'qwen3-coder-30b': 'qwen.qwen3-coder-30b-a3b-v1:0',
+    'qwen3-next': 'qwen.qwen3-next-80b-a3b',
+    'qwen3-vl': 'qwen.qwen3-vl-235b-a22b',
+
+    // OpenAI GPT (Open Source) - on-demand supported (no us. prefix)
+    'gpt-oss': 'openai.gpt-oss-120b-1:0',
+    'gpt-oss-120b': 'openai.gpt-oss-120b-1:0',
+    'gpt-oss-20b': 'openai.gpt-oss-20b-1:0',
+  },
+  claude: {
+    // Convenient aliases
+    fast: 'claude-haiku-4-5-20251001',
+    smart: 'claude-sonnet-4-5-20250929',
+    default: 'claude-sonnet-4-5-20250929',
+
+    // Claude 4.5 (Latest generation)
+    'sonnet': 'claude-sonnet-4-5-20250929',
+    'opus': 'claude-opus-4-5-20251101',
+    'haiku': 'claude-haiku-4-5-20251001',
+    'claude-sonnet': 'claude-sonnet-4-5-20250929',
+    'claude-opus': 'claude-opus-4-5-20251101',
+    'claude-haiku': 'claude-haiku-4-5-20251001',
+    'claude-4.5-sonnet': 'claude-sonnet-4-5-20250929',
+    'claude-4.5-opus': 'claude-opus-4-5-20251101',
+    'claude-4.5-haiku': 'claude-haiku-4-5-20251001',
+
+    // Claude 4.x
+    'claude-4-sonnet': 'claude-sonnet-4-20250514',
+    'claude-4.1-opus': 'claude-opus-4-1-20250805',
+
+    // Claude 3.5
+    'claude-3.5-sonnet': 'claude-3-5-sonnet-20241022',
+    'claude-3.5-haiku': 'claude-3-5-haiku-20241022',
+
+    // Claude 3
+    'claude-3-opus': 'claude-3-opus-20240229',
+    'claude-3-sonnet': 'claude-3-sonnet-20240229',
+    'claude-3-haiku': 'claude-3-haiku-20240307',
   },
 };
 
@@ -82,21 +170,96 @@ export const AVAILABLE_MODELS = [
 
 /**
  * Available Bedrock models (for display in help)
+ * Note: Models with us. prefix require inference profiles for on-demand usage
+ * Full list: https://docs.aws.amazon.com/bedrock/latest/userguide/models-supported.html
  */
 export const AVAILABLE_BEDROCK_MODELS = [
-  { id: 'amazon.nova-lite-v1:0', description: 'Nova Lite - Fast, cost-effective' },
-  { id: 'amazon.nova-pro-v1:0', description: 'Nova Pro - Balanced performance' },
-  { id: 'us.amazon.nova-premier-v1:0', description: 'Nova Premier - Most capable, web grounding' },
-  { id: 'anthropic.claude-3-haiku-20240307-v1:0', description: 'Claude 3 Haiku - Fast Claude' },
-  { id: 'anthropic.claude-3-sonnet-20240229-v1:0', description: 'Claude 3 Sonnet - Balanced Claude' },
-  { id: 'anthropic.claude-3-opus-20240229-v1:0', description: 'Claude 3 Opus - Most capable Claude' },
+  // Claude 4.5 (Latest generation) - require inference profile
+  { id: 'us.anthropic.claude-sonnet-4-5-20250929-v1:0', description: 'Claude 4.5 Sonnet - Latest, recommended' },
+  { id: 'us.anthropic.claude-opus-4-5-20251101-v1:0', description: 'Claude 4.5 Opus - Most capable' },
+  { id: 'us.anthropic.claude-haiku-4-5-20251001-v1:0', description: 'Claude 4.5 Haiku - Fast' },
+
+  // Claude 4.x - require inference profile
+  { id: 'us.anthropic.claude-sonnet-4-20250514-v1:0', description: 'Claude 4 Sonnet' },
+  { id: 'us.anthropic.claude-opus-4-1-20250805-v1:0', description: 'Claude 4.1 Opus' },
+
+  // Claude 3 - on-demand supported
+  { id: 'anthropic.claude-3-haiku-20240307-v1:0', description: 'Claude 3 Haiku - On-demand' },
+
+  // Amazon Nova - on-demand supported
+  { id: 'amazon.nova-micro-v1:0', description: 'Nova Micro - Ultra fast, on-demand' },
+  { id: 'amazon.nova-lite-v1:0', description: 'Nova Lite - Fast, on-demand' },
+  { id: 'amazon.nova-pro-v1:0', description: 'Nova Pro - Balanced, on-demand' },
+  { id: 'amazon.nova-premier-v1:0', description: 'Nova Premier - On-demand' },
+
+  // Amazon Nova 2 - require inference profile (with web grounding support)
+  // Note: Nova 2 Pro is in preview only and not generally available
+  { id: 'us.amazon.nova-2-lite-v1:0', description: 'Nova 2 Lite - Web grounding (default)' },
+
+  // Meta Llama 4 - require inference profile
+  { id: 'us.meta.llama4-maverick-17b-instruct-v1:0', description: 'Llama 4 Maverick 17B' },
+  { id: 'us.meta.llama4-scout-17b-instruct-v1:0', description: 'Llama 4 Scout 17B' },
+
+  // Meta Llama 3.x - on-demand supported
+  { id: 'meta.llama3-3-70b-instruct-v1:0', description: 'Llama 3.3 70B - On-demand' },
+  { id: 'meta.llama3-1-405b-instruct-v1:0', description: 'Llama 3.1 405B - Largest' },
+
+  // Mistral - on-demand and inference profile
+  { id: 'mistral.mistral-large-2407-v1:0', description: 'Mistral Large 2407 - On-demand' },
+  { id: 'us.mistral.mistral-large-3-675b-instruct', description: 'Mistral Large 3 675B - Latest' },
+
+  // Qwen (Alibaba) - on-demand supported
+  { id: 'qwen.qwen3-coder-30b-a3b-v1:0', description: 'Qwen3 Coder 30B - Best for coding' },
+  { id: 'qwen.qwen3-235b-a22b-2507-v1:0', description: 'Qwen3 235B - General purpose' },
+  { id: 'qwen.qwen3-vl-235b-a22b', description: 'Qwen3 VL 235B - Vision' },
+
+  // OpenAI GPT (Open Source) - on-demand supported
+  { id: 'openai.gpt-oss-120b-1:0', description: 'GPT OSS 120B - General purpose' },
+  { id: 'openai.gpt-oss-20b-1:0', description: 'GPT OSS 20B - Fast' },
+];
+
+/**
+ * Note: Any valid Bedrock model ID can be passed via --model flag
+ * The aliases above are just shortcuts for common models
+ * Full list: https://docs.aws.amazon.com/bedrock/latest/userguide/models-supported.html
+ */
+
+/**
+ * Available Claude models (for display in help)
+ * Full list: https://docs.anthropic.com/en/docs/about-claude/models
+ */
+export const AVAILABLE_CLAUDE_MODELS = [
+  // Claude 4.5 (Latest generation)
+  { id: 'claude-sonnet-4-5-20250929', description: 'Claude 4.5 Sonnet - Balanced (default)' },
+  { id: 'claude-opus-4-5-20251101', description: 'Claude 4.5 Opus - Most capable' },
+  { id: 'claude-haiku-4-5-20251001', description: 'Claude 4.5 Haiku - Fast' },
+
+  // Claude 4.x
+  { id: 'claude-sonnet-4-20250514', description: 'Claude 4 Sonnet' },
+  { id: 'claude-opus-4-1-20250805', description: 'Claude 4.1 Opus' },
+
+  // Claude 3.5
+  { id: 'claude-3-5-sonnet-20241022', description: 'Claude 3.5 Sonnet' },
+  { id: 'claude-3-5-haiku-20241022', description: 'Claude 3.5 Haiku' },
+
+  // Claude 3
+  { id: 'claude-3-opus-20240229', description: 'Claude 3 Opus' },
+  { id: 'claude-3-sonnet-20240229', description: 'Claude 3 Sonnet' },
+  { id: 'claude-3-haiku-20240307', description: 'Claude 3 Haiku' },
 ];
 
 /**
  * Get available models for a specific provider
  */
 export function getAvailableModelsForProvider(provider: ProviderName): typeof AVAILABLE_MODELS {
-  return provider === 'bedrock' ? AVAILABLE_BEDROCK_MODELS : AVAILABLE_MODELS;
+  switch (provider) {
+    case 'bedrock':
+      return AVAILABLE_BEDROCK_MODELS;
+    case 'claude':
+      return AVAILABLE_CLAUDE_MODELS;
+    default:
+      return AVAILABLE_MODELS;
+  }
 }
 
 // ============================================================================
@@ -223,12 +386,23 @@ export function resolveModelConfig(options: ModelConfigOptions = {}): ResolvedMo
   const provider = options.provider || 'gemini';
   const resolveAlias = (alias: string) => resolveProviderModelAlias(alias, provider);
 
-  let defaultModel: string = provider === 'bedrock'
-    ? PROVIDER_MODEL_ALIASES.bedrock.default
-    : BUILTIN_DEFAULT_MODEL;
-  let fallbackModel: string = provider === 'bedrock'
-    ? PROVIDER_MODEL_ALIASES.bedrock.fast
-    : BUILTIN_FALLBACK_MODEL;
+  // Get default model based on provider
+  let defaultModel: string;
+  let fallbackModel: string;
+
+  switch (provider) {
+    case 'bedrock':
+      defaultModel = PROVIDER_MODEL_ALIASES.bedrock.default;
+      fallbackModel = PROVIDER_MODEL_ALIASES.bedrock.fast;
+      break;
+    case 'claude':
+      defaultModel = PROVIDER_MODEL_ALIASES.claude.default;
+      fallbackModel = PROVIDER_MODEL_ALIASES.claude.fast;
+      break;
+    default:
+      defaultModel = BUILTIN_DEFAULT_MODEL;
+      fallbackModel = BUILTIN_FALLBACK_MODEL;
+  }
   let defaultSource: ResolvedModelConfig['defaultSource'] = 'builtin';
   let fallbackSource: ResolvedModelConfig['fallbackSource'] = 'builtin';
 

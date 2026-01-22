@@ -1,6 +1,6 @@
 /**
  * Configuration and API Key Management
- * Supports multiple LLM providers: Gemini (default) and Amazon Bedrock
+ * Supports multiple LLM providers: Gemini (default), Amazon Bedrock, and Claude
  */
 
 import * as fs from 'fs';
@@ -131,6 +131,50 @@ export function hasBedrockCredentials(): boolean {
 }
 
 /**
+ * Check if Claude API credentials are available
+ * Checks for Anthropic API key via environment variables
+ */
+export function hasClaudeCredentials(): boolean {
+  // Check for Anthropic API key
+  if (process.env.ANTHROPIC_API_KEY) {
+    return true;
+  }
+
+  // Check for alternative Claude API key env var
+  if (process.env.CLAUDE_API_KEY) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Get Claude API key from environment
+ */
+export function getClaudeApiKey(): string {
+  const apiKey = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_API_KEY;
+
+  if (!apiKey) {
+    throw new Error(`
+Claude API key not found. Please set it using one of these methods:
+
+1. Environment variable:
+   export ANTHROPIC_API_KEY=your_api_key
+
+2. Alternative environment variable:
+   export CLAUDE_API_KEY=your_api_key
+
+3. .env file in your project:
+   ANTHROPIC_API_KEY=your_api_key
+
+Get your API key at: https://console.anthropic.com/
+`);
+  }
+
+  return apiKey;
+}
+
+/**
  * Detect the provider to use based on configuration priority
  * Priority:
  * 1. RLM_PROVIDER environment variable
@@ -141,7 +185,7 @@ export function hasBedrockCredentials(): boolean {
 export function detectProvider(): ProviderName {
   // 1. Check environment variable
   const envProvider = process.env.RLM_PROVIDER?.toLowerCase();
-  if (envProvider === 'gemini' || envProvider === 'bedrock') {
+  if (envProvider === 'gemini' || envProvider === 'bedrock' || envProvider === 'claude') {
     return envProvider;
   }
 
@@ -155,7 +199,7 @@ export function detectProvider(): ProviderName {
     if (fs.existsSync(configPath)) {
       try {
         const config = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
-        if (config.provider === 'gemini' || config.provider === 'bedrock') {
+        if (config.provider === 'gemini' || config.provider === 'bedrock' || config.provider === 'claude') {
           return config.provider;
         }
       } catch {
@@ -175,6 +219,11 @@ export function detectProvider(): ProviderName {
     return 'bedrock';
   }
 
+  // If Claude credentials are available, use Claude
+  if (hasClaudeCredentials()) {
+    return 'claude';
+  }
+
   // 4. Default to Gemini
   return 'gemini';
 }
@@ -183,20 +232,28 @@ export function detectProvider(): ProviderName {
  * Build provider configuration based on detected or specified provider
  */
 function buildProviderConfig(provider: ProviderName): ProviderConfig {
-  if (provider === 'bedrock') {
-    return {
-      provider: 'bedrock',
-      apiKey: process.env.AWS_BEARER_TOKEN_BEDROCK, // Bedrock API key
-      region: process.env.AWS_REGION || 'us-east-1',
-      profile: process.env.AWS_PROFILE,
-    };
-  }
+  switch (provider) {
+    case 'bedrock':
+      return {
+        provider: 'bedrock',
+        apiKey: process.env.AWS_BEARER_TOKEN_BEDROCK, // Bedrock API key
+        region: process.env.AWS_REGION || 'us-east-1',
+        profile: process.env.AWS_PROFILE,
+      };
 
-  // Gemini
-  return {
-    provider: 'gemini',
-    apiKey: getApiKey(),
-  };
+    case 'claude':
+      return {
+        provider: 'claude',
+        apiKey: getClaudeApiKey(),
+      };
+
+    default:
+      // Gemini (default)
+      return {
+        provider: 'gemini',
+        apiKey: getApiKey(),
+      };
+  }
 }
 
 /**
@@ -297,7 +354,7 @@ export function hasApiKey(): boolean {
  * Check if any provider credentials are available
  */
 export function hasAnyCredentials(): boolean {
-  return hasApiKey() || hasBedrockCredentials();
+  return hasApiKey() || hasBedrockCredentials() || hasClaudeCredentials();
 }
 
 /**

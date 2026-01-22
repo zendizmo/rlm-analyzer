@@ -5,6 +5,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-01-22
+
+### Added
+- **Claude Provider (Anthropic API)**: Direct integration with Claude API as third provider option
+  - New `--provider claude` CLI option
+  - Supports Claude 4.5 Sonnet, Opus, and Haiku models
+  - Model aliases: `sonnet`, `opus`, `haiku`, `claude-sonnet`, `claude-opus`, `claude-haiku`
+  - Authentication via `ANTHROPIC_API_KEY` or `CLAUDE_API_KEY` environment variable
+- **Claude Web Search**: Web grounding support for Claude provider
+  - Uses `web_search_20250305` tool for real-time web data
+  - Automatically enabled with `--grounding` flag when using Claude
+- **Token Usage Tracking**: Added `TokenUsage` interface for tracking API token consumption
+  - Includes `inputTokens`, `outputTokens`, `totalTokens`
+  - Cache token tracking for Claude (`cacheCreationTokens`, `cacheReadTokens`)
+
+### Changed
+- **Bedrock Web Grounding**: Now uses Nova 2 Lite (`us.amazon.nova-2-lite-v1:0`) instead of Nova Premier
+  - Nova 2 Lite has native web grounding support via `nova_grounding` system tool
+- Updated provider factory to support three providers: `gemini`, `bedrock`, `claude`
+- Enhanced MCP server with Claude provider support and status reporting
+
+### Removed
+- Removed `nova-2-pro` model alias (Nova 2 Pro is in preview only, not generally available)
+
+### Documentation
+- Updated `docs/models-and-commands.md` with Claude provider models and aliases
+- Updated README with Claude provider setup instructions
+
+---
+
 ## [1.3.4] - 2026-01-20
 
 ### Added

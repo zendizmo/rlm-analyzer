@@ -117,6 +117,7 @@ export {
 // High-level analysis functions
 export {
   loadFiles,
+  loadFilesWithIndex,
   analyzeCodebase,
   analyzeArchitecture,
   analyzeDependencies,
@@ -127,7 +128,41 @@ export {
   findUsages,
   explainFile,
   askQuestion,
+  clearIndexCache,
 } from './analyzer.js';
+
+// Structural indexing and caching
+export {
+  buildStructuralIndex,
+  updateStructuralIndex,
+  loadCachedIndex,
+  saveIndexToCache,
+  clearCache,
+  getCachePath,
+  hashContent,
+  hashProject,
+  extractImports,
+  extractExports,
+  buildDependencyGraph,
+  buildClusters,
+  getAnalysisPriority,
+  getDependents,
+  getDependencies,
+  getFileCluster,
+  needsChunking,
+  chunkFile,
+} from './structural-index.js';
+
+// Large file handling
+export {
+  smartChunkFile,
+  extractChunkSkeleton,
+  describeChunk,
+  processLargeFile,
+  createLargeFileSummary,
+  getChunkContent,
+  type ProcessedLargeFile,
+} from './file-chunker.js';
 
 // Prompts
 export {

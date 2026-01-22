@@ -118,6 +118,8 @@ export interface CodeAnalysisOptions {
   maxTurns?: number;
   /** Enable web grounding to verify package versions in security recommendations (default: false) */
   enableWebGrounding?: boolean;
+  /** Use structural index cache for faster subsequent runs (default: true) */
+  useCache?: boolean;
 }
 
 export interface CodeAnalysisResult extends RLMResult {
@@ -191,23 +193,174 @@ export const DEFAULT_CONFIG: RLMConfig = {
 
 /** File extensions to analyze by default */
 export const CODE_EXTENSIONS = [
+  // JavaScript/TypeScript
   '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs',
+  // Python
   '.py', '.pyw',
-  '.java', '.kt', '.scala',
-  '.go',
-  '.rs',
-  '.c', '.cpp', '.cc', '.h', '.hpp',
-  '.cs',
-  '.rb',
-  '.php',
-  '.swift',
-  '.vue', '.svelte',
-  '.json', '.yaml', '.yml', '.toml',
-  '.md', '.mdx',
-  '.sql',
-  '.sh', '.bash', '.zsh',
-  '.dockerfile', '.docker-compose.yml',
+  // JVM
+  '.java', '.kt', '.scala', '.groovy',
+  // Systems
+  '.go', '.rs', '.c', '.cpp', '.cc', '.h', '.hpp',
+  // .NET
+  '.cs', '.fs', '.vb',
+  // Scripting
+  '.rb', '.php', '.lua', '.pl', '.pm',
+  // Mobile
+  '.swift', '.m', '.mm',
+  // Frontend frameworks
+  '.vue', '.svelte', '.astro',
+  // Data/Config
+  '.json', '.yaml', '.yml', '.toml', '.xml',
+  // Documentation
+  '.md', '.mdx', '.rst',
+  // Database
+  '.sql', '.prisma',
+  // API/Schema definitions
+  '.graphql', '.gql', '.proto',
+  // Infrastructure as Code
+  '.tf', '.tfvars', '.hcl',
+  // Shell/Scripts
+  '.sh', '.bash', '.zsh', '.ps1',
+  // Container/DevOps
+  '.dockerfile',
+  // Environment templates (not .env itself for security)
+  '.env.example', '.env.sample', '.env.template',
 ];
+
+/** File names to include regardless of extension */
+export const INCLUDE_FILENAMES = [
+  'Dockerfile',
+  'docker-compose.yml',
+  'docker-compose.yaml',
+  'Makefile',
+  'Jenkinsfile',
+  'Vagrantfile',
+  '.gitignore',
+  '.dockerignore',
+  '.eslintrc',
+  '.prettierrc',
+  'tsconfig.json',
+  'package.json',
+  'requirements.txt',
+  'Cargo.toml',
+  'go.mod',
+  'pom.xml',
+  'build.gradle',
+  'CMakeLists.txt',
+];
+
+// ============================================================================
+// Structural Index Types (for caching and dependency analysis)
+// ============================================================================
+
+/** File metadata in the structural index */
+export interface FileIndexEntry {
+  /** Relative path from project root */
+  path: string;
+  /** SHA-256 hash of file content */
+  hash: string;
+  /** File size in bytes */
+  size: number;
+  /** Last modified timestamp */
+  mtime: number;
+  /** Detected imports/dependencies */
+  imports: string[];
+  /** Detected exports */
+  exports: string[];
+  /** File extension */
+  extension: string;
+  /** Whether file was chunked due to size */
+  chunked: boolean;
+  /** Number of chunks if chunked */
+  chunkCount?: number;
+}
+
+/** Dependency edge in the graph */
+export interface DependencyEdge {
+  /** Source file (importer) */
+  from: string;
+  /** Target file (imported) */
+  to: string;
+  /** Type of import */
+  type: 'import' | 'require' | 'include' | 'from';
+}
+
+/** Cluster of related files */
+export interface FileCluster {
+  /** Cluster identifier */
+  id: string;
+  /** Files in this cluster */
+  files: string[];
+  /** Entry point file(s) */
+  entryPoints: string[];
+  /** Total size of cluster in bytes */
+  totalSize: number;
+  /** Cluster type */
+  type: 'module' | 'feature' | 'utility' | 'config' | 'test';
+}
+
+/** Structural index for a project */
+export interface StructuralIndex {
+  /** Version of the index format */
+  version: string;
+  /** Project root path */
+  projectRoot: string;
+  /** Index creation timestamp */
+  createdAt: number;
+  /** Last update timestamp */
+  updatedAt: number;
+  /** File index entries */
+  files: Record<string, FileIndexEntry>;
+  /** Dependency edges */
+  dependencies: DependencyEdge[];
+  /** File clusters for grouped analysis */
+  clusters: FileCluster[];
+  /** Project metadata */
+  metadata: {
+    /** Total file count */
+    fileCount: number;
+    /** Total size in bytes */
+    totalSize: number;
+    /** Detected languages */
+    languages: string[];
+    /** Detected frameworks */
+    frameworks: string[];
+    /** Package manager detected */
+    packageManager?: 'npm' | 'yarn' | 'pnpm' | 'pip' | 'cargo' | 'go' | 'maven' | 'gradle';
+  };
+}
+
+/** Options for structural indexing */
+export interface StructuralIndexOptions {
+  /** Force rebuild even if cache exists */
+  force?: boolean;
+  /** Maximum file size before chunking (default: 100KB) */
+  maxFileSize?: number;
+  /** Chunk size for large files (default: 50KB) */
+  chunkSize?: number;
+  /** Enable dependency graph building */
+  buildDependencyGraph?: boolean;
+  /** Enable file clustering */
+  enableClustering?: boolean;
+  /** Verbose output */
+  verbose?: boolean;
+}
+
+/** Large file chunk */
+export interface FileChunk {
+  /** Chunk index */
+  index: number;
+  /** Total chunks for this file */
+  total: number;
+  /** Start line number */
+  startLine: number;
+  /** End line number */
+  endLine: number;
+  /** Chunk content */
+  content: string;
+  /** Chunk summary (generated by LLM) */
+  summary?: string;
+}
 
 /** Directories to ignore by default */
 export const IGNORE_DIRS = [

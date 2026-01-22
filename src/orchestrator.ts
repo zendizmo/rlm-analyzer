@@ -246,6 +246,11 @@ export class RLMOrchestrator {
       { role: 'user', content: `${systemPrompt}\n\n${contextMessage}` },
     ];
 
+    // Track consecutive no-code turns for stuck detection
+    let consecutiveNoCodeTurns = 0;
+    const MAX_CONSECUTIVE_NO_CODE = 3;
+    const STUCK_DETECTION_TURN = 5; // After this many turns with 0 sub-LLM calls, force completion
+
     // Main conversation loop
     for (let turn = 1; turn <= this.config.maxTurns; turn++) {
       // Update current turn for progress callbacks
@@ -326,6 +331,9 @@ export class RLMOrchestrator {
       let executionError: string | null = null;
 
       if (hasCode) {
+        // Reset no-code counter since we got code
+        consecutiveNoCodeTurns = 0;
+
         // Report executing phase
         reportProgress(turn, 'executing');
 
@@ -356,12 +364,73 @@ export class RLMOrchestrator {
             : `Error:\n\`\`\`\n${executionError}\n\`\`\`\n\nPlease fix the code and try again.`,
         });
       } else {
-        // No code, prompt for code or FINAL
-        history.push({ role: 'assistant', content: response });
-        history.push({
-          role: 'user',
-          content: 'Please write Python code to analyze the codebase, or use FINAL("your answer") if you have the answer.',
-        });
+        // No code - track and escalate prompts
+        consecutiveNoCodeTurns++;
+        const currentSubCalls = this.executor.getSubCallCount();
+
+        if (this.verbose) {
+          console.log(`  [No code] Consecutive no-code turns: ${consecutiveNoCodeTurns}, Sub-LLM calls: ${currentSubCalls}`);
+        }
+
+        // Check for stuck pattern: many turns with no sub-LLM calls
+        if (turn >= STUCK_DETECTION_TURN && currentSubCalls === 0) {
+          if (this.verbose) {
+            console.log(`  [Stuck] Detected stuck pattern at turn ${turn} with 0 sub-LLM calls. Forcing completion.`);
+          }
+          // Force the model to provide whatever answer it has
+          history.push({ role: 'assistant', content: response });
+          history.push({
+            role: 'user',
+            content: `⚠️ ANALYSIS STUCK: You've used ${turn} turns without making any llm_query() calls or producing code.
+
+You MUST now provide your best answer based on what you can see in the file_index.
+
+Use this EXACT format to complete:
+\`\`\`python
+FINAL("""
+## Summary
+[Your analysis of the codebase based on the files you can see]
+
+## Key Components
+[List the main files/modules you identified]
+
+## Tech Stack
+[Technologies detected from file names and extensions]
+""")
+\`\`\`
+
+DO NOT explain. Just output the code block above with your analysis.`,
+          });
+        } else if (consecutiveNoCodeTurns >= MAX_CONSECUTIVE_NO_CODE) {
+          // Escalated prompt with specific example
+          const fileNames = Object.keys(context.files).slice(0, 5);
+          history.push({ role: 'assistant', content: response });
+          history.push({
+            role: 'user',
+            content: `⚠️ You have not written any executable code in ${consecutiveNoCodeTurns} turns.
+
+You MUST write Python code now. Here's exactly what to do:
+
+\`\`\`python
+# Option 1: Analyze a specific file
+content = file_index.get('${fileNames[0] || 'src/index.ts'}', '')[:3000]
+analysis = llm_query(f"Analyze this code:\\n{content}")
+print(analysis)
+
+# Option 2: If you have enough info, provide final answer
+FINAL("""Your comprehensive analysis here""")
+\`\`\`
+
+Write ONE of these code blocks now. No explanations, just code.`,
+          });
+        } else {
+          // Standard prompt
+          history.push({ role: 'assistant', content: response });
+          history.push({
+            role: 'user',
+            content: 'Please write Python code to analyze the codebase, or use FINAL("your answer") if you have the answer.',
+          });
+        }
       }
 
       // Create turn record with current sub-LLM count

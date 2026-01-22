@@ -1,6 +1,12 @@
 /**
  * Code Analysis High-Level API
  * Provides easy-to-use functions for common analysis tasks
+ *
+ * Features:
+ * - Structural indexing with caching for faster subsequent runs
+ * - Dependency graph for cross-file analysis
+ * - Large file chunking to avoid missing important code
+ * - Smart analysis ordering based on file clusters
  */
 
 import * as fs from 'fs';
@@ -8,14 +14,28 @@ import * as path from 'path';
 import type {
   CodeAnalysisOptions,
   CodeAnalysisResult,
+  StructuralIndex,
 } from './types.js';
-import { CODE_EXTENSIONS, IGNORE_DIRS } from './types.js';
+import { CODE_EXTENSIONS, INCLUDE_FILENAMES, IGNORE_DIRS } from './types.js';
 import { RLMOrchestrator } from './orchestrator.js';
 import { getAnalysisPrompt } from './prompts.js';
 import { verifySecurityRecommendations, appendGroundingSources } from './grounding.js';
+import {
+  buildStructuralIndex,
+  updateStructuralIndex,
+  getAnalysisPriority,
+  clearCache,
+} from './structural-index.js';
+import {
+  processLargeFile,
+  createLargeFileSummary,
+} from './file-chunker.js';
 
 /** Default maximum file size in bytes (100KB) */
 export const DEFAULT_MAX_FILE_SIZE = 100_000;
+
+/** Large file threshold - files above this get chunked (200KB) */
+const LARGE_FILE_THRESHOLD = 200_000;
 
 /** Default analysis type when not specified */
 export const DEFAULT_ANALYSIS_TYPE = 'summary' as const;
@@ -44,7 +64,7 @@ function calculateTimeout(fileCount: number): number {
 }
 
 /**
- * Load files from a directory
+ * Load files from a directory (legacy function for backward compatibility)
  */
 export function loadFiles(
   directory: string,
@@ -59,7 +79,11 @@ export function loadFiles(
   const includeExts = options.include || CODE_EXTENSIONS;
   const excludeDirs = [...IGNORE_DIRS, ...(options.exclude || [])];
 
-  function shouldInclude(filePath: string): boolean {
+  function shouldInclude(filePath: string, fileName: string): boolean {
+    // Check by filename first
+    if (INCLUDE_FILENAMES.includes(fileName)) {
+      return true;
+    }
     const ext = path.extname(filePath);
     return includeExts.some(e => ext === e || filePath.endsWith(e));
   }
@@ -76,7 +100,7 @@ export function loadFiles(
           if (!excludeDirs.includes(entry.name)) {
             walk(fullPath);
           }
-        } else if (entry.isFile() && shouldInclude(entry.name)) {
+        } else if (entry.isFile() && shouldInclude(relativePath, entry.name)) {
           try {
             const stats = fs.statSync(fullPath);
             if (stats.size <= maxSize) {
@@ -97,18 +121,107 @@ export function loadFiles(
 }
 
 /**
+ * Load files using structural index with large file handling
+ * Returns both the files and the structural index for dependency information
+ */
+export async function loadFilesWithIndex(
+  directory: string,
+  options: {
+    include?: string[];
+    exclude?: string[];
+    maxFileSize?: number;
+    useCache?: boolean;
+    verbose?: boolean;
+  } = {}
+): Promise<{
+  files: Record<string, string>;
+  index: StructuralIndex;
+  largeFiles: string[];
+}> {
+  const {
+    maxFileSize = DEFAULT_MAX_FILE_SIZE,
+    useCache = true,
+    verbose = false,
+  } = options;
+
+  // Build or load structural index
+  let index: StructuralIndex;
+  let changedFiles: string[] | undefined;
+
+  if (useCache) {
+    const result = await updateStructuralIndex(directory, { verbose });
+    index = result.index;
+    changedFiles = result.changedFiles;
+    if (verbose && changedFiles.length > 0) {
+      console.log(`[Index] ${changedFiles.length} files changed since last run`);
+    }
+  } else {
+    index = await buildStructuralIndex(directory, { force: true, verbose });
+  }
+
+  const files: Record<string, string> = {};
+  const largeFiles: string[] = [];
+
+  // Get files in analysis priority order (entry points first)
+  const prioritizedFiles = getAnalysisPriority(index);
+
+  for (const relativePath of prioritizedFiles) {
+    const entry = index.files[relativePath];
+    if (!entry) continue;
+
+    const fullPath = path.join(directory, relativePath);
+
+    try {
+      const content = fs.readFileSync(fullPath, 'utf-8');
+
+      if (entry.size > LARGE_FILE_THRESHOLD) {
+        // Process large file - create summary instead of full content
+        const processed = processLargeFile(content, relativePath);
+        files[relativePath] = createLargeFileSummary(processed);
+        largeFiles.push(relativePath);
+
+        if (verbose) {
+          console.log(`[Chunker] Large file ${relativePath}: ${processed.chunkCount} chunks`);
+        }
+      } else if (entry.size <= maxFileSize) {
+        // Normal file - include full content
+        files[relativePath] = content;
+      } else {
+        // Medium-large file - include but note it's truncated
+        files[relativePath] = content.slice(0, maxFileSize) +
+          `\n\n// ... truncated (${Math.round(entry.size / 1024)}KB total)`;
+      }
+    } catch {
+      // Skip unreadable files
+    }
+  }
+
+  return { files, index, largeFiles };
+}
+
+/**
  * Analyze a codebase with custom query
+ * Now uses structural indexing for:
+ * - Faster subsequent runs (cached file index)
+ * - Better analysis ordering (entry points first)
+ * - Large file handling (chunking with summaries)
+ * - Dependency information for cross-file analysis
  */
 export async function analyzeCodebase(
   options: CodeAnalysisOptions
 ): Promise<CodeAnalysisResult> {
-  const files = loadFiles(options.directory, {
+  const useCache = options.useCache !== false; // Default to true
+  const analysisType = options.analysisType || DEFAULT_ANALYSIS_TYPE;
+
+  // Load files with structural index
+  const { files, index, largeFiles } = await loadFilesWithIndex(options.directory, {
     include: options.include,
     exclude: options.exclude,
+    useCache,
+    verbose: options.verbose,
   });
 
   const fileCount = Object.keys(files).length;
-  const analysisType = options.analysisType || DEFAULT_ANALYSIS_TYPE;
 
   if (fileCount === 0) {
     return {
@@ -123,7 +236,14 @@ export async function analyzeCodebase(
     };
   }
 
-  const query = options.query || getAnalysisPrompt(analysisType);
+  // Build enhanced query with structural context
+  let query = options.query || getAnalysisPrompt(analysisType);
+
+  // Add structural context to help LLM understand codebase organization
+  if (index.clusters.length > 0 || index.metadata.frameworks.length > 0) {
+    const structuralContext = buildStructuralContext(index, largeFiles);
+    query = `${structuralContext}\n\n${query}`;
+  }
 
   // Calculate smart max turns and timeout based on codebase size
   const maxTurns = options.maxTurns || calculateMaxTurns(fileCount);
@@ -147,6 +267,52 @@ export async function analyzeCodebase(
     filesAnalyzed: Object.keys(files),
     analysisType,
   };
+}
+
+/**
+ * Build structural context string to prepend to analysis queries
+ */
+function buildStructuralContext(index: StructuralIndex, largeFiles: string[]): string {
+  const parts: string[] = ['## Codebase Structure\n'];
+
+  // Add metadata
+  if (index.metadata.frameworks.length > 0) {
+    parts.push(`**Frameworks detected:** ${index.metadata.frameworks.join(', ')}`);
+  }
+  if (index.metadata.packageManager) {
+    parts.push(`**Package manager:** ${index.metadata.packageManager}`);
+  }
+  if (index.metadata.languages.length > 0) {
+    parts.push(`**Languages:** ${index.metadata.languages.join(', ')}`);
+  }
+
+  // Add cluster summary
+  if (index.clusters.length > 0) {
+    parts.push('\n**File clusters (related modules):**');
+    for (const cluster of index.clusters.slice(0, 10)) {
+      const entryPoints = cluster.entryPoints.slice(0, 2).join(', ');
+      parts.push(`- ${cluster.type}: ${cluster.files.length} files (entry: ${entryPoints || 'N/A'})`);
+    }
+    if (index.clusters.length > 10) {
+      parts.push(`- ... and ${index.clusters.length - 10} more clusters`);
+    }
+  }
+
+  // Note large files
+  if (largeFiles.length > 0) {
+    parts.push(`\n**Large files (summarized):** ${largeFiles.join(', ')}`);
+    parts.push('*Note: Large files are shown as summaries. Request specific sections if needed.*');
+  }
+
+  parts.push('');
+  return parts.join('\n');
+}
+
+/**
+ * Clear the structural index cache for a directory
+ */
+export function clearIndexCache(directory: string): void {
+  clearCache(directory);
 }
 
 /**

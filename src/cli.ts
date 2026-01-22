@@ -38,6 +38,7 @@ import {
   findUsages,
   explainFile,
   askQuestion,
+  clearIndexCache,
 } from './analyzer.js';
 import {
   hasApiKey,
@@ -192,6 +193,7 @@ ${colors.bold}Commands:${colors.reset}
   ${colors.green}ask${colors.reset} "<question>"     Ask a custom question
   ${colors.green}config${colors.reset} [api-key]     Configure or show API key status
   ${colors.green}test${colors.reset}                 Test API connection and model availability
+  ${colors.green}clear-cache${colors.reset}          Clear structural index cache for a directory
 
 ${colors.bold}Options:${colors.reset}
   --dir, -d <path>      Directory to analyze (default: current directory)
@@ -202,6 +204,7 @@ ${colors.bold}Options:${colors.reset}
                         Aliases: sonnet, opus, haiku (claude)
   --output, -o <file>   Save results to markdown file (e.g., rlm-context.md)
   --grounding, -g       Enable web grounding to verify package versions (security only)
+  --no-cache            Disable structural index caching (force fresh analysis)
   --verbose, -v         Show detailed turn-by-turn output
   --json                Output results as JSON
   --help, -h            Show this help message
@@ -301,6 +304,7 @@ function parseArgs(args: string[]): {
     version: boolean;
     output: string | null;
     grounding: boolean;
+    noCache: boolean;
   };
 } {
   const options = {
@@ -313,6 +317,7 @@ function parseArgs(args: string[]): {
     version: false,
     output: null as string | null,
     grounding: false,
+    noCache: false,
   };
 
   let command = '';
@@ -370,6 +375,8 @@ function parseArgs(args: string[]): {
       options.output = arg.slice(3);
     } else if (arg === '--grounding' || arg === '-g') {
       options.grounding = true;
+    } else if (arg === '--no-cache') {
+      options.noCache = true;
     } else if (!command) {
       command = arg;
     } else if (!target) {
@@ -422,7 +429,7 @@ function createProgressCallback(progressTracker: ProgressTracker): (progress: RL
 async function runCommand(
   command: string,
   target: string | undefined,
-  options: { dir: string; model: string; provider: ProviderName | undefined; verbose: boolean; json: boolean; output: string | null; grounding: boolean }
+  options: { dir: string; model: string; provider: ProviderName | undefined; verbose: boolean; json: boolean; output: string | null; grounding: boolean; noCache: boolean }
 ): Promise<void> {
   const startTime = Date.now();
 
@@ -444,9 +451,24 @@ async function runCommand(
 
   const onTurnComplete = createTurnCallback(options.verbose);
   const onProgress = progressTracker ? createProgressCallback(progressTracker) : undefined;
-  const analysisOpts = { verbose: options.verbose, onTurnComplete, onProgress, model: options.model };
+  const analysisOpts = {
+    verbose: options.verbose,
+    onTurnComplete,
+    onProgress,
+    model: options.model,
+    useCache: !options.noCache,
+  };
 
   let result;
+
+  // Handle clear-cache command before switch
+  if (command === 'clear-cache') {
+    progressTracker?.stop();
+    clearIndexCache(options.dir);
+    log(`\nCache cleared for: ${options.dir}`, 'green');
+    log('Next analysis will rebuild the structural index.', 'dim');
+    process.exit(0);
+  }
 
   switch (command) {
     case 'summary':

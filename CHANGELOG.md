@@ -5,6 +5,46 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0] - 2026-01-22
+
+### Added
+- **Structural Indexing with Caching**: Smart file indexing for faster analysis
+  - SHA-256 file hashing for change detection
+  - Import/export extraction for dependency analysis
+  - File clustering for grouped analysis
+  - Cache stored in `~/.rlm-analyzer/cache/`
+  - ~10x faster subsequent runs on unchanged files
+- **Large File Chunking**: Intelligent handling of files >200KB
+  - Smart chunking by logical boundaries (functions, classes, interfaces)
+  - Skeleton extraction without LLM (signatures, exports, imports)
+  - Summary generation for context preservation
+- **Stuck Detection and Recovery**: Prevents infinite analysis loops
+  - Tracks consecutive no-code turns
+  - Escalating prompts after repeated failures
+  - Force completion after turn 5 with 0 sub-LLM calls
+  - Before: 20 turns, timeout ❌ → After: 1 turn, completion ✅
+- **Extended File Extensions**: Better coverage for modern codebases
+  - Added `.graphql`, `.gql`, `.proto`, `.prisma`
+  - Added `.tf`, `.tfvars`, `.hcl` (Infrastructure as Code)
+  - Added common config files (Dockerfile, Makefile, etc.)
+- **CLI Cache Options**: Control over structural index caching
+  - `--no-cache` flag to force fresh analysis
+  - `clear-cache` command to clear index for a directory
+
+### Changed
+- `analyzeCodebase()` now uses structural index by default
+- File loading prioritizes entry points based on cluster analysis
+- Analysis order optimized based on dependency graph
+
+---
+
+## [1.5.1] - 2026-01-22
+
+### Fixed
+- Fixed hardcoded version strings in CLI and MCP server
+
+---
+
 ## [1.5.0] - 2026-01-22
 
 ### Added

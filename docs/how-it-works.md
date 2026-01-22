@@ -43,7 +43,86 @@ RLM Analyzer uses a novel approach to analyze codebases that exceed traditional 
 
 ## Key Concepts
 
-### 1. Turns
+### 1. Structural Indexing (v1.6.0+)
+
+Before analysis begins, RLM Analyzer builds a **structural index** of your codebase:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Structural Index                          │
+├─────────────────────────────────────────────────────────────┤
+│  • File hashes (SHA-256) for change detection               │
+│  • Import/export extraction per file                        │
+│  • Dependency graph (who imports whom)                      │
+│  • File clusters (related modules grouped)                  │
+│  • Cached in ~/.rlm-analyzer/cache/                         │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Benefits:**
+- **10x faster subsequent runs** - Only re-indexes changed files
+- **Smart analysis order** - Entry points analyzed first
+- **Dependency awareness** - Understands file relationships
+
+**CLI options:**
+```bash
+rlm summary ./project          # Uses cache (default)
+rlm summary ./project --no-cache   # Force fresh index
+rlm clear-cache --dir ./project    # Clear cached index
+```
+
+### 2. Large File Chunking (v1.6.0+)
+
+Files over 200KB are **chunked by logical boundaries** instead of being truncated:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                 Large File (300KB)                           │
+└─────────────────────────────────────────────────────────────┘
+                              │
+              ┌───────────────┼───────────────┐
+              ▼               ▼               ▼
+        ┌──────────┐   ┌──────────┐   ┌──────────┐
+        │ Chunk 1  │   │ Chunk 2  │   │ Chunk 3  │
+        │ Classes  │   │ Functions│   │ Exports  │
+        │ A, B     │   │ foo, bar │   │ utils    │
+        └──────────┘   └──────────┘   └──────────┘
+              │               │               │
+              └───────────────┼───────────────┘
+                              ▼
+                    ┌──────────────────┐
+                    │ Skeleton Summary │
+                    │ (key definitions)│
+                    └──────────────────┘
+```
+
+**How it works:**
+1. Detect logical boundaries (functions, classes, interfaces)
+2. Split at boundaries, not arbitrary byte limits
+3. Extract skeleton (signatures, exports, imports)
+4. Present summary to LLM with option to request specific chunks
+
+### 3. Stuck Detection (v1.6.0+)
+
+The orchestrator detects when analysis is **spinning without progress**:
+
+```
+Pattern detected: Turn 5+, 0 sub-LLM calls, no code execution
+                              │
+                              ▼
+              ┌───────────────────────────────┐
+              │     Escalating Prompts        │
+              ├───────────────────────────────┤
+              │ Turn 1-2: "Please write code" │
+              │ Turn 3-4: Specific examples   │
+              │ Turn 5+:  Force completion    │
+              └───────────────────────────────┘
+```
+
+**Before v1.6.0:** 20 turns, timeout, no answer ❌
+**After v1.6.0:** Detects stuck pattern, forces completion ✅
+
+### 4. Turns
 
 A **turn** is a single round-trip interaction with the orchestrator LLM:
 
@@ -260,13 +339,48 @@ Turn 5:
     3. Outdated dependency with CVE...")
 ```
 
+## Web Grounding (Security Analysis)
+
+For security scans, RLM Analyzer can **verify recommendations against live web data**:
+
+```bash
+rlm security ./project --grounding
+```
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                  Security Analysis                           │
+│   "Upgrade lodash to 4.17.21 to fix CVE-2021-23337"        │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼ (--grounding flag)
+┌─────────────────────────────────────────────────────────────┐
+│                   Web Grounding                              │
+│   • Search: "lodash latest version npm 2024"                │
+│   • Search: "CVE-2021-23337 lodash"                         │
+│   • Verify: Is 4.17.21 actually the latest?                 │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+                    Verified Recommendation
+                    + Source citations
+```
+
+**Provider-specific grounding:**
+- **Gemini**: Uses `googleSearch` tool
+- **Bedrock (Nova)**: Uses `nova_grounding` systemTool
+- **Claude**: Uses `web_search` tool
+
 ## Benefits
 
 1. **No context overflow** - Can analyze codebases of any size
 2. **Cost efficient** - Only processes what's needed
 3. **Deep analysis** - Sub-LLMs focus on specific areas
 4. **Parallel processing** - Faster than sequential analysis
-5. **Provider agnostic** - Works with Gemini, Bedrock (Claude/Nova/Llama), and Claude (Anthropic API)
+5. **Provider agnostic** - Works with Gemini, Bedrock (Nova), and Claude API
+6. **Caching** - Structural index cached for faster subsequent runs
+7. **Large file support** - Smart chunking preserves context
+8. **Self-healing** - Stuck detection prevents infinite loops
 
 ## Research Foundation
 

@@ -44,11 +44,11 @@ export interface GenerateResponse {
 export interface ProviderConfig {
   /** Provider name */
   provider: ProviderName;
-  /** API key (for Gemini) */
+  /** API key - Gemini API key or Bedrock API key (AWS_BEARER_TOKEN_BEDROCK) */
   apiKey?: string;
-  /** AWS region (for Bedrock) */
+  /** AWS region (for Bedrock, default: us-east-1) */
   region?: string;
-  /** AWS profile name (for Bedrock) */
+  /** AWS profile name (for Bedrock, alternative to API key) */
   profile?: string;
 }
 

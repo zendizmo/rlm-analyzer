@@ -87,15 +87,20 @@ First, install the AWS SDK (required for Bedrock):
 npm install @aws-sdk/client-bedrock-runtime
 ```
 
-Then configure AWS credentials:
+Then configure authentication (choose one):
 
 ```bash
-# Option 1: Environment variables
+# Option 1: Bedrock API Key (Recommended - simplest setup)
+# Generate at: AWS Console → Bedrock → API keys
+export AWS_BEARER_TOKEN_BEDROCK=your_bedrock_api_key
+export AWS_REGION=us-east-1
+
+# Option 2: AWS Access Keys
 export AWS_ACCESS_KEY_ID=your_access_key
 export AWS_SECRET_ACCESS_KEY=your_secret_key
 export AWS_REGION=us-east-1
 
-# Option 2: AWS CLI profile
+# Option 3: AWS CLI profile
 aws configure
 ```
 
@@ -222,7 +227,9 @@ First, install the AWS SDK in your project or globally:
 npm install @aws-sdk/client-bedrock-runtime
 ```
 
-Then configure the MCP server:
+Then configure the MCP server (choose one authentication method):
+
+**Option 1: Bedrock API Key (Recommended)**
 
 ```json
 {
@@ -232,16 +239,34 @@ Then configure the MCP server:
       "args": ["-y", "rlm-analyzer-mcp"],
       "env": {
         "RLM_PROVIDER": "bedrock",
-        "AWS_REGION": "us-east-1",
-        "AWS_ACCESS_KEY_ID": "your_access_key",
-        "AWS_SECRET_ACCESS_KEY": "your_secret_key"
+        "AWS_BEARER_TOKEN_BEDROCK": "your_bedrock_api_key",
+        "AWS_REGION": "us-east-1"
       }
     }
   }
 }
 ```
 
-Or use an AWS profile:
+**Option 2: AWS Access Keys**
+
+```json
+{
+  "mcpServers": {
+    "rlm-analyzer": {
+      "command": "npx",
+      "args": ["-y", "rlm-analyzer-mcp"],
+      "env": {
+        "RLM_PROVIDER": "bedrock",
+        "AWS_ACCESS_KEY_ID": "your_access_key",
+        "AWS_SECRET_ACCESS_KEY": "your_secret_key",
+        "AWS_REGION": "us-east-1"
+      }
+    }
+  }
+}
+```
+
+**Option 3: AWS Profile**
 
 ```json
 {
@@ -483,12 +508,19 @@ export RLM_FALLBACK_MODEL=gemini-2.0-flash-exp
 # Gemini API key
 export GEMINI_API_KEY=your_api_key
 
-# Bedrock credentials (when using bedrock provider)
+# Bedrock authentication (choose one):
+# Option 1: Bedrock API Key (recommended)
+export AWS_BEARER_TOKEN_BEDROCK=your_bedrock_api_key
+export AWS_REGION=us-east-1
+
+# Option 2: AWS Access Keys
 export AWS_ACCESS_KEY_ID=your_access_key
 export AWS_SECRET_ACCESS_KEY=your_secret_key
 export AWS_REGION=us-east-1
-# Or use a profile
+
+# Option 3: AWS Profile
 export AWS_PROFILE=your_profile_name
+export AWS_REGION=us-east-1
 ```
 
 ### Config File
@@ -580,12 +612,14 @@ Your API key can be stored in multiple locations (checked in order):
 
 #### Bedrock Credentials
 
-AWS credentials are loaded using the standard AWS SDK credential chain:
+Authentication options (in priority order):
 
-1. Environment variables (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`)
-2. Shared credentials file (`~/.aws/credentials`)
-3. AWS profile (`AWS_PROFILE` environment variable)
-4. IAM role (when running on AWS infrastructure)
+1. **Bedrock API Key** (Recommended): `AWS_BEARER_TOKEN_BEDROCK` environment variable
+   - Generate at: AWS Console → Bedrock → API keys
+   - Simplest setup, no IAM configuration required
+2. **AWS Access Keys**: `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY`
+3. **AWS Profile**: `AWS_PROFILE` or `~/.aws/credentials`
+4. **IAM Role**: Automatic when running on AWS infrastructure
 
 The region can be set via `AWS_REGION` environment variable (default: `us-east-1`).
 

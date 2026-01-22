@@ -106,7 +106,12 @@ Get your API key at: https://aistudio.google.com/apikey
  * Checks for AWS credentials via environment variables or AWS profile
  */
 export function hasBedrockCredentials(): boolean {
-  // Check for explicit credentials
+  // Check for Bedrock API key (new in July 2025)
+  if (process.env.AWS_BEARER_TOKEN_BEDROCK) {
+    return true;
+  }
+
+  // Check for explicit AWS credentials
   if (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY) {
     return true;
   }
@@ -181,6 +186,7 @@ function buildProviderConfig(provider: ProviderName): ProviderConfig {
   if (provider === 'bedrock') {
     return {
       provider: 'bedrock',
+      apiKey: process.env.AWS_BEARER_TOKEN_BEDROCK, // Bedrock API key
       region: process.env.AWS_REGION || 'us-east-1',
       profile: process.env.AWS_PROFILE,
     };

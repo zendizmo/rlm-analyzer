@@ -30,6 +30,7 @@ export function createProvider(config: ProviderConfig): LLMProvider {
       return new BedrockProvider({
         region: config.region,
         profile: config.profile,
+        apiKey: config.apiKey, // Bedrock API key (AWS_BEARER_TOKEN_BEDROCK)
       });
 
     default:

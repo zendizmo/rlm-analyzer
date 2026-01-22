@@ -246,7 +246,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request): Promise<CallToo
     // Check credentials for analysis tools
     if (name !== 'rlm_config' && !hasAnyCredentials()) {
       const errorMsg = provider === 'bedrock'
-        ? 'Error: AWS credentials not configured. Set AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY or AWS_PROFILE.'
+        ? 'Error: AWS credentials not configured. Set AWS_BEARER_TOKEN_BEDROCK (recommended), or AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY, or AWS_PROFILE.'
         : 'Error: GEMINI_API_KEY not configured. Set it in the MCP server environment.';
       return {
         content: [{

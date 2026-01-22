@@ -242,21 +242,25 @@ ${colors.bold}Configuration:${colors.reset}
     3. Get key at: ${colors.blue}https://aistudio.google.com/apikey${colors.reset}
 
   ${colors.cyan}Bedrock (AWS):${colors.reset}
-    1. Configure AWS credentials:
+    1. Using Bedrock API Key (recommended):
+       ${colors.cyan}export AWS_BEARER_TOKEN_BEDROCK=your_api_key${colors.reset}
+       ${colors.cyan}export AWS_REGION=us-east-1${colors.reset}
+    2. Or use AWS access keys:
        ${colors.cyan}export AWS_ACCESS_KEY_ID=your_key${colors.reset}
        ${colors.cyan}export AWS_SECRET_ACCESS_KEY=your_secret${colors.reset}
        ${colors.cyan}export AWS_REGION=us-east-1${colors.reset}
-    2. Or use AWS profile: ${colors.cyan}export AWS_PROFILE=your_profile${colors.reset}
-    3. Then: ${colors.cyan}rlm summary --provider bedrock${colors.reset}
+    3. Or use AWS profile: ${colors.cyan}export AWS_PROFILE=your_profile${colors.reset}
+    4. Then: ${colors.cyan}rlm summary --provider bedrock${colors.reset}
 
 ${colors.bold}Environment Variables:${colors.reset}
-  RLM_PROVIDER         Default provider (gemini|bedrock)
-  RLM_DEFAULT_MODEL    Default model alias or ID
-  GEMINI_API_KEY       Gemini API key
-  AWS_ACCESS_KEY_ID    AWS access key (for Bedrock)
-  AWS_SECRET_ACCESS_KEY AWS secret key (for Bedrock)
-  AWS_REGION           AWS region (default: us-east-1)
-  AWS_PROFILE          AWS credentials profile name
+  RLM_PROVIDER              Default provider (gemini|bedrock)
+  RLM_DEFAULT_MODEL         Default model alias or ID
+  GEMINI_API_KEY            Gemini API key
+  AWS_BEARER_TOKEN_BEDROCK  Bedrock API key (recommended)
+  AWS_ACCESS_KEY_ID         AWS access key (for Bedrock)
+  AWS_SECRET_ACCESS_KEY     AWS secret key (for Bedrock)
+  AWS_REGION                AWS region (default: us-east-1)
+  AWS_PROFILE               AWS credentials profile name
 
 ${colors.bold}Config File:${colors.reset}
   ~/.rlm-analyzer/config.json:
@@ -671,7 +675,7 @@ export async function runCli(): Promise<void> {
     }
     if (provider === 'bedrock' && !hasBedrockCredentials()) {
       log('Error: AWS credentials not configured for Bedrock', 'red');
-      log('Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY, or AWS_PROFILE', 'cyan');
+      log('Set AWS_BEARER_TOKEN_BEDROCK (recommended), or AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY, or AWS_PROFILE', 'cyan');
       process.exit(1);
     }
     await testConnection(options.model, options.provider);
@@ -713,7 +717,9 @@ export async function runCli(): Promise<void> {
 
       log('\nTo configure Gemini:', 'reset');
       log('  rlm config YOUR_GEMINI_API_KEY', 'cyan');
-      log('\nTo configure Bedrock:', 'reset');
+      log('\nTo configure Bedrock (choose one):', 'reset');
+      log('  export AWS_BEARER_TOKEN_BEDROCK=your_api_key  # Recommended', 'cyan');
+      log('  # Or use AWS access keys:', 'dim');
       log('  export AWS_ACCESS_KEY_ID=your_key', 'cyan');
       log('  export AWS_SECRET_ACCESS_KEY=your_secret', 'cyan');
     }
@@ -735,11 +741,14 @@ export async function runCli(): Promise<void> {
 
   if (provider === 'bedrock' && !hasBedrockCredentials()) {
     log('Error: AWS credentials not configured for Bedrock', 'red');
-    log('\nTo configure, set environment variables:', 'reset');
+    log('\nOption 1 - Bedrock API Key (recommended):', 'reset');
+    log('  export AWS_BEARER_TOKEN_BEDROCK=your_api_key', 'cyan');
+    log('  export AWS_REGION=us-east-1', 'cyan');
+    log('\nOption 2 - AWS Access Keys:', 'reset');
     log('  export AWS_ACCESS_KEY_ID=your_key', 'cyan');
     log('  export AWS_SECRET_ACCESS_KEY=your_secret', 'cyan');
     log('  export AWS_REGION=us-east-1', 'cyan');
-    log('\nOr use an AWS profile:', 'reset');
+    log('\nOption 3 - AWS Profile:', 'reset');
     log('  export AWS_PROFILE=your_profile', 'cyan');
     process.exit(1);
   }

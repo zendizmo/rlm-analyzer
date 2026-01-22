@@ -1,6 +1,14 @@
 /**
  * Amazon Bedrock Provider Implementation
  * Uses the Converse API with support for Nova Premier web grounding
+ *
+ * Authentication options (in priority order):
+ * 1. Bedrock API Key: AWS_BEARER_TOKEN_BEDROCK env var or apiKey option
+ * 2. AWS Credentials: AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY
+ * 3. AWS Profile: AWS_PROFILE or ~/.aws/credentials
+ *
+ * Bedrock API keys were introduced in July 2025 and provide simplified
+ * authentication without requiring full IAM setup.
  */
 
 import type {
@@ -130,6 +138,15 @@ function extractGroundingMetadata(response: unknown): GroundingMetadata | undefi
 
 /**
  * Amazon Bedrock LLM Provider
+ *
+ * Supports two authentication methods:
+ * 1. Bedrock API Key (recommended for quick setup):
+ *    - Set AWS_BEARER_TOKEN_BEDROCK env var, or
+ *    - Pass apiKey in constructor options
+ * 2. AWS Credentials (traditional):
+ *    - AWS_ACCESS_KEY_ID + AWS_SECRET_ACCESS_KEY, or
+ *    - AWS_PROFILE, or
+ *    - ~/.aws/credentials file
  */
 export class BedrockProvider implements LLMProvider {
   readonly name: ProviderName = 'bedrock';
@@ -138,15 +155,22 @@ export class BedrockProvider implements LLMProvider {
   private defaultModel: string;
   private region: string;
   private profile?: string;
+  private apiKey?: string;
   private initPromise: Promise<void> | null = null;
 
   constructor(options: {
+    /** AWS region (default: us-east-1) */
     region?: string;
+    /** AWS profile name */
     profile?: string;
+    /** Bedrock API key (alternative to AWS credentials) */
+    apiKey?: string;
+    /** Default model to use */
     defaultModel?: string;
   } = {}) {
     this.region = options.region || process.env.AWS_REGION || DEFAULT_REGION;
     this.profile = options.profile || process.env.AWS_PROFILE;
+    this.apiKey = options.apiKey || process.env.AWS_BEARER_TOKEN_BEDROCK;
     this.defaultModel = options.defaultModel || DEFAULT_BEDROCK_MODEL;
   }
 
@@ -170,11 +194,15 @@ export class BedrockProvider implements LLMProvider {
       region: this.region,
     };
 
+    // Set Bedrock API key if provided (AWS SDK auto-detects this env var)
+    if (this.apiKey) {
+      process.env.AWS_BEARER_TOKEN_BEDROCK = this.apiKey;
+    }
+
     // Note: profile is handled by AWS SDK credential chain
     // Setting AWS_PROFILE env var or using ~/.aws/credentials
-    if (this.profile) {
-      // For explicit profile, user should set AWS_PROFILE env var
-      // or use fromIni() credential provider
+    if (this.profile && !this.apiKey) {
+      // Only use profile if no API key is provided
       process.env.AWS_PROFILE = this.profile;
     }
 

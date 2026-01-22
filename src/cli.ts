@@ -614,7 +614,7 @@ function generateMarkdownReport(
     md += '\n';
   }
 
-  md += `---\n*Analysis performed with RLM Analyzer v1.5.0 using ${provider} provider*\n`;
+  md += `---\n*Analysis performed with RLM Analyzer v1.5.1 using ${provider} provider*\n`;
 
   return md;
 }
@@ -673,7 +673,7 @@ export async function runCli(): Promise<void> {
 
   // Show version
   if (options.version) {
-    console.log('rlm-analyzer v1.5.0');
+    console.log('rlm-analyzer v1.5.1');
     process.exit(0);
   }
 

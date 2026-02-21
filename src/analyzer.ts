@@ -16,7 +16,7 @@ import type {
   CodeAnalysisResult,
   StructuralIndex,
 } from './types.js';
-import { CODE_EXTENSIONS, INCLUDE_FILENAMES, IGNORE_DIRS } from './types.js';
+import { CODE_EXTENSIONS, INCLUDE_FILENAMES, IGNORE_DIRS, isFlutterGeneratedFile } from './types.js';
 import { RLMOrchestrator } from './orchestrator.js';
 import { getAnalysisPrompt } from './prompts.js';
 import { verifySecurityRecommendations, appendGroundingSources } from './grounding.js';
@@ -80,6 +80,10 @@ export function loadFiles(
   const excludeDirs = [...IGNORE_DIRS, ...(options.exclude || [])];
 
   function shouldInclude(filePath: string, fileName: string): boolean {
+    // Skip Flutter/Dart generated files
+    if (isFlutterGeneratedFile(fileName)) {
+      return false;
+    }
     // Check by filename first
     if (INCLUDE_FILENAMES.includes(fileName)) {
       return true;

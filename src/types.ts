@@ -170,7 +170,7 @@ export function getDefaultRLMConfig(modelOverride?: string): RLMConfig {
     subModel: model,
     maxRecursionDepth: 3,
     maxTurns: 10,
-    timeoutMs: 600000, // 5 minutes
+    timeoutMs: 300000, // 5 minutes
     maxSubCalls: 15,
     mode: 'code-analysis',
   };
@@ -186,7 +186,7 @@ export const DEFAULT_CONFIG: RLMConfig = {
   subModel: 'gemini-3-flash-preview',
   maxRecursionDepth: 3,
   maxTurns: 10,
-  timeoutMs: 600000, // 5 minutes
+  timeoutMs: 300000, // 5 minutes
   maxSubCalls: 15,
   mode: 'code-analysis',
 };

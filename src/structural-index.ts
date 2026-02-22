@@ -781,36 +781,71 @@ export async function updateStructuralIndex(
   }
 
   const changedFiles: string[] = [];
+  const currentFiles = new Set<string>();
   const { maxFileSize = DEFAULT_MAX_FILE_SIZE, chunkSize = DEFAULT_CHUNK_SIZE } = options;
+  const activeCache = cached;
 
-  // Check each cached file for changes
-  for (const [relativePath, entry] of Object.entries(cached.files)) {
-    const fullPath = path.join(absDir, relativePath);
+  // Walk directory to find new and modified files
+  function walk(dir: string): void {
+    try {
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
 
-    if (!fs.existsSync(fullPath)) {
-      // File deleted
-      delete cached.files[relativePath];
-      changedFiles.push(relativePath);
-    } else {
-      const stats = fs.statSync(fullPath);
-      if (stats.mtimeMs > entry.mtime) {
-        // File modified
-        const content = fs.readFileSync(fullPath, 'utf-8');
-        const ext = path.extname(relativePath);
-        const isLarge = needsChunking(stats.size, maxFileSize);
+      for (const entry of entries) {
+        const fullPath = path.join(dir, entry.name);
+        const relativePath = path.relative(absDir, fullPath);
 
-        cached.files[relativePath] = {
-          ...entry,
-          hash: hashContent(content),
-          size: stats.size,
-          mtime: stats.mtimeMs,
-          imports: extractImports(content, ext),
-          exports: extractExports(content, ext),
-          chunked: isLarge,
-          chunkCount: isLarge ? chunkFile(content, chunkSize).length : undefined,
-        };
-        changedFiles.push(relativePath);
+        if (entry.isDirectory()) {
+          if (!IGNORE_DIRS.includes(entry.name)) {
+            walk(fullPath);
+          }
+        } else if (entry.isFile() && shouldIncludeFile(relativePath, entry.name)) {
+          currentFiles.add(relativePath);
+          try {
+            const stats = fs.statSync(fullPath);
+            const cachedEntry = activeCache.files[relativePath];
+
+            // If file is new or modified
+            if (!cachedEntry || stats.mtimeMs > cachedEntry.mtime) {
+              const content = fs.readFileSync(fullPath, 'utf-8');
+              const ext = path.extname(entry.name);
+              const lang = getLanguage(ext);
+
+              if (lang !== 'unknown' && !activeCache.metadata.languages.includes(lang)) {
+                activeCache.metadata.languages.push(lang);
+              }
+
+              const isLarge = needsChunking(stats.size, maxFileSize);
+
+              activeCache.files[relativePath] = {
+                path: relativePath,
+                hash: hashContent(content),
+                size: stats.size,
+                mtime: stats.mtimeMs,
+                imports: extractImports(content, ext),
+                exports: extractExports(content, ext),
+                extension: ext,
+                chunked: isLarge,
+                chunkCount: isLarge ? chunkFile(content, chunkSize).length : undefined,
+              };
+              changedFiles.push(relativePath);
+            }
+          } catch {
+            // Skip unreadable files
+          }
+        }
       }
+    } catch {
+      // Skip unreadable directories
+    }
+  }
+
+  walk(absDir);
+
+  // Check for deleted files
+  for (const relativePath of Object.keys(activeCache.files)) {
+    if (!currentFiles.has(relativePath)) {
+      delete activeCache.files[relativePath];
+      changedFiles.push(relativePath);
     }
   }
 

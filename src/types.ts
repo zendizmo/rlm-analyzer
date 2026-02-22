@@ -170,7 +170,7 @@ export function getDefaultRLMConfig(modelOverride?: string): RLMConfig {
     subModel: model,
     maxRecursionDepth: 3,
     maxTurns: 10,
-    timeoutMs: 300000, // 5 minutes
+    timeoutMs: 600000, // 5 minutes
     maxSubCalls: 15,
     mode: 'code-analysis',
   };
@@ -186,7 +186,7 @@ export const DEFAULT_CONFIG: RLMConfig = {
   subModel: 'gemini-3-flash-preview',
   maxRecursionDepth: 3,
   maxTurns: 10,
-  timeoutMs: 300000, // 5 minutes
+  timeoutMs: 600000, // 5 minutes
   maxSubCalls: 15,
   mode: 'code-analysis',
 };
@@ -416,9 +416,9 @@ export const IGNORE_DIRS = [
 /** Check if a file is an auto-generated Flutter/Dart file that should be ignored */
 export function isFlutterGeneratedFile(fileName: string): boolean {
   return fileName.endsWith('.g.dart') ||
-         fileName.endsWith('.freezed.dart') ||
-         fileName.endsWith('.mocks.dart') ||
-         fileName.endsWith('.config.dart') ||
-         fileName.endsWith('.inject.dart') ||
-         fileName.endsWith('.gr.dart');
+    fileName.endsWith('.freezed.dart') ||
+    fileName.endsWith('.mocks.dart') ||
+    fileName.endsWith('.config.dart') ||
+    fileName.endsWith('.inject.dart') ||
+    fileName.endsWith('.gr.dart');
 }

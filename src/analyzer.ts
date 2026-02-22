@@ -60,7 +60,7 @@ function calculateTimeout(fileCount: number): number {
   if (fileCount >= 200) return 900000;  // 15 minutes
   if (fileCount >= 100) return 600000;  // 10 minutes
   if (fileCount >= 50) return 450000;   // 7.5 minutes
-  return 300000;                         // 5 minutes default
+  return 600000;                         // 5 minutes default
 }
 
 /**

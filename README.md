@@ -41,6 +41,13 @@ Analyze any codebase with AI that can process **100x beyond context limits**. Po
 - **[How It Works](docs/how-it-works.md)** - Deep dive into RLM architecture, recursive analysis, and token optimization
 - **[Models & Commands Reference](docs/models-and-commands.md)** - Complete list of CLI commands, model IDs, and aliases for Gemini, Bedrock, and Claude
 
+## Changelog
+
+**v1.6.1**
+- Added full support for Flutter/Dart apps featuring structural indexing, layout analysis, and mobile-aware system prompts.
+- Fixed a bug where reference errors during Javascript transpilation were ignored and returned un-interpolated template variables.
+- Fixed a bug where the Python-to-JavaScript string extraction mangled markdown templates like `## Headers` during formatting.
+
 ---
 
 ## Installation

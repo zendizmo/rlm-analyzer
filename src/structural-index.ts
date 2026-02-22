@@ -23,7 +23,7 @@ import type {
   FileCluster,
   FileChunk,
 } from './types.js';
-import { CODE_EXTENSIONS, INCLUDE_FILENAMES, IGNORE_DIRS } from './types.js';
+import { CODE_EXTENSIONS, INCLUDE_FILENAMES, IGNORE_DIRS, isFlutterGeneratedFile } from './types.js';
 
 /** Current index format version */
 const INDEX_VERSION = '1.0.0';
@@ -88,6 +88,9 @@ const IMPORT_PATTERNS: Record<string, RegExp[]> = {
   java: [
     /import\s+([a-zA-Z_][a-zA-Z0-9_.]*)/g,
   ],
+  kotlin: [
+    /import\s+([a-zA-Z_][a-zA-Z0-9_.]*)/g,
+  ],
   csharp: [
     /using\s+([a-zA-Z_][a-zA-Z0-9_.]*)/g,
   ],
@@ -99,6 +102,12 @@ const IMPORT_PATTERNS: Record<string, RegExp[]> = {
     /use\s+([a-zA-Z_\\][a-zA-Z0-9_\\]*)/g,
     /require(?:_once)?\s+['"]([^'"]+)['"]/g,
     /include(?:_once)?\s+['"]([^'"]+)['"]/g,
+  ],
+  dart: [
+    /import\s+['"]([^'"]+)['"]/g,
+    /export\s+['"]([^'"]+)['"]/g,
+    /part\s+['"]([^'"]+)['"]/g,
+    /part\s+of\s+['"]([^'"]+)['"]/g,
   ],
 };
 
@@ -127,6 +136,18 @@ const EXPORT_PATTERNS: Record<string, RegExp[]> = {
   java: [
     /public\s+(?:class|interface|enum)\s+([a-zA-Z_][a-zA-Z0-9_]*)/g,
   ],
+  kotlin: [
+    /^(?:class|interface|object|enum\s+class|sealed\s+class|data\s+class)\s+([A-Z][a-zA-Z0-9_]*)/gm,
+    /^fun\s+(?:<[^>]+>\s+)?(?:[\w.]+\.)?([a-zA-Z_][a-zA-Z0-9_]*)/gm,
+  ],
+  dart: [
+    /^(?:abstract\s+|sealed\s+|base\s+|final\s+)?class\s+([A-Z][a-zA-Z0-9_]*)/gm,
+    /^mixin\s+([A-Z][a-zA-Z0-9_]*)/gm,
+    /^enum\s+([A-Z][a-zA-Z0-9_]*)/gm,
+    /^extension\s+([A-Z][a-zA-Z0-9_]*)/gm,
+    /^typedef\s+([A-Z][a-zA-Z0-9_]*)/gm,
+    /^(?:void|int|double|String|bool|Future|Stream|List|Map|Set|dynamic|Widget|\w+(?:<[^>]*>)?\??)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*[(<]/gm,
+  ],
 };
 
 /**
@@ -139,7 +160,8 @@ function getLanguage(ext: string): string {
     '.py': 'python', '.pyw': 'python',
     '.go': 'go',
     '.rs': 'rust',
-    '.java': 'java', '.kt': 'java', '.scala': 'java',
+    '.dart': 'dart',
+    '.java': 'java', '.kt': 'kotlin', '.kts': 'kotlin', '.scala': 'java',
     '.cs': 'csharp', '.fs': 'csharp',
     '.rb': 'ruby',
     '.php': 'php',
@@ -289,7 +311,7 @@ function resolveImportPath(
   let resolved = path.join(sourceDir, importPath);
 
   // Try common extensions
-  const extensions = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '', '/index.ts', '/index.js'];
+  const extensions = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.dart', '', '/index.ts', '/index.js'];
   for (const ext of extensions) {
     const candidate = resolved + ext;
     if (fileIndex[candidate]) {
@@ -526,6 +548,11 @@ export function clearCache(directory: string): void {
  * Check if a file should be included
  */
 function shouldIncludeFile(filePath: string, fileName: string): boolean {
+  // Skip Flutter/Dart generated files (noisy, auto-generated code)
+  if (isFlutterGeneratedFile(fileName)) {
+    return false;
+  }
+
   // Check by filename first
   if (INCLUDE_FILENAMES.includes(fileName)) {
     return true;
@@ -703,6 +730,8 @@ function detectFrameworks(fileIndex: Record<string, FileIndexEntry>): string[] {
     [/rails/, 'Rails'],
     [/spring/, 'Spring'],
     [/\.prisma$/, 'Prisma'],
+    [/pubspec\.yaml/, 'Flutter'],
+    [/\.dart$/, 'Dart'],
   ];
 
   for (const file of files) {
@@ -728,6 +757,7 @@ function detectPackageManager(dir: string): StructuralIndex['metadata']['package
   if (fs.existsSync(path.join(dir, 'requirements.txt')) || fs.existsSync(path.join(dir, 'pyproject.toml'))) return 'pip';
   if (fs.existsSync(path.join(dir, 'pom.xml'))) return 'maven';
   if (fs.existsSync(path.join(dir, 'build.gradle')) || fs.existsSync(path.join(dir, 'build.gradle.kts'))) return 'gradle';
+  if (fs.existsSync(path.join(dir, 'pubspec.yaml'))) return 'pub';
   return undefined;
 }
 

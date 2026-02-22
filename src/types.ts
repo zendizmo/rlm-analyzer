@@ -205,12 +205,14 @@ export const CODE_EXTENSIONS = [
   '.cs', '.fs', '.vb',
   // Scripting
   '.rb', '.php', '.lua', '.pl', '.pm',
-  // Mobile
-  '.swift', '.m', '.mm',
+  // Mobile / Flutter
+  '.dart', '.swift', '.m', '.mm',
+  // Android (Kotlin DSL)
+  '.kts',
   // Frontend frameworks
   '.vue', '.svelte', '.astro',
-  // Data/Config
-  '.json', '.yaml', '.yml', '.toml', '.xml',
+  // Data/Config/i18n
+  '.json', '.yaml', '.yml', '.toml', '.xml', '.arb',
   // Documentation
   '.md', '.mdx', '.rst',
   // Database
@@ -247,6 +249,20 @@ export const INCLUDE_FILENAMES = [
   'pom.xml',
   'build.gradle',
   'CMakeLists.txt',
+  // Flutter / Dart
+  'pubspec.yaml',
+  'analysis_options.yaml',
+  'l10n.yaml',
+  // Android
+  'build.gradle.kts',
+  'settings.gradle',
+  'settings.gradle.kts',
+  'gradle.properties',
+  'AndroidManifest.xml',
+  // iOS
+  'Podfile',
+  'Info.plist',
+  'Gemfile',
 ];
 
 // ============================================================================
@@ -326,7 +342,7 @@ export interface StructuralIndex {
     /** Detected frameworks */
     frameworks: string[];
     /** Package manager detected */
-    packageManager?: 'npm' | 'yarn' | 'pnpm' | 'pip' | 'cargo' | 'go' | 'maven' | 'gradle';
+    packageManager?: 'npm' | 'yarn' | 'pnpm' | 'pip' | 'cargo' | 'go' | 'maven' | 'gradle' | 'pub';
   };
 }
 
@@ -382,4 +398,27 @@ export const IGNORE_DIRS = [
   '.nuxt',
   '.output',
   '.cache',
+  // Flutter / Dart
+  '.dart_tool',
+  '.symlinks',
+  'ephemeral',
+  '.pub-cache',
+  '.fvm',
+  'flutter_gen',
+  // iOS
+  'Pods',
+  'DerivedData',
+  'xcuserdata',
+  // Android
+  '.gradle',
 ];
+
+/** Check if a file is an auto-generated Flutter/Dart file that should be ignored */
+export function isFlutterGeneratedFile(fileName: string): boolean {
+  return fileName.endsWith('.g.dart') ||
+         fileName.endsWith('.freezed.dart') ||
+         fileName.endsWith('.mocks.dart') ||
+         fileName.endsWith('.config.dart') ||
+         fileName.endsWith('.inject.dart') ||
+         fileName.endsWith('.gr.dart');
+}

@@ -45,6 +45,10 @@ const BOUNDARY_PATTERNS: Record<string, RegExp[]> = {
     /^(?:public|private|protected)\s+(?:static\s+)?class\s+\w+/m,
     /^(?:public|private|protected)\s+(?:static\s+)?(?:\w+\s+)+\w+\s*\(/m,
   ],
+  kotlin: [
+    /^(?:class|interface|object|enum\s+class|sealed\s+class|data\s+class)\s+\w+/m,
+    /^fun\s+(?:<[^>]+>\s+)?(?:[\w.]+\.)?\w+/m,
+  ],
   go: [
     /^func\s+(?:\(\w+\s+\*?\w+\)\s+)?\w+/m,
     /^type\s+\w+\s+(?:struct|interface)/m,
@@ -56,6 +60,16 @@ const BOUNDARY_PATTERNS: Record<string, RegExp[]> = {
     /^(?:pub\s+)?trait\s+\w+/m,
     /^impl\s+(?:\w+\s+for\s+)?\w+/m,
   ],
+  dart: [
+    /^(?:abstract\s+|sealed\s+|base\s+|final\s+)?class\s+\w+/m,
+    /^mixin\s+\w+/m,
+    /^enum\s+\w+/m,
+    /^extension\s+\w+/m,
+    /^typedef\s+\w+/m,
+    /^(?:void|int|double|String|bool|Future|Stream|Widget|List|Map|Set|dynamic|\w+(?:<[^>]*>)?\??)\s+\w+\s*[(<]/m,
+    /^\s+(?:Widget\s+)?build\s*\(/m,
+    /^\s+@override/m,
+  ],
 };
 
 /**
@@ -66,7 +80,8 @@ function getLanguageFromExt(ext: string): string {
     '.ts': 'typescript', '.tsx': 'typescript',
     '.js': 'javascript', '.jsx': 'javascript', '.mjs': 'javascript',
     '.py': 'python',
-    '.java': 'java', '.kt': 'java',
+    '.dart': 'dart',
+    '.java': 'java', '.kt': 'kotlin', '.kts': 'kotlin',
     '.go': 'go',
     '.rs': 'rust',
   };
@@ -169,7 +184,7 @@ export function extractChunkSkeleton(chunk: FileChunk, ext: string): string {
 
   for (const line of lines) {
     // Include imports
-    if (/^import\s|^from\s|^require\s|^use\s|^using\s/.test(line)) {
+    if (/^import\s|^from\s|^require\s|^use\s|^using\s|^export\s+['"]|^part\s/.test(line)) {
       skeleton.push(line);
       continue;
     }

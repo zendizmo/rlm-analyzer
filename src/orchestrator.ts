@@ -302,7 +302,7 @@ export class RLMOrchestrator {
 
         // Inject memory if context rot detected and we have memories
         if (rotIndicators.recommendation === 'inject_memory' ||
-            rotIndicators.recommendation === 'summarize') {
+          rotIndicators.recommendation === 'summarize') {
           const memoryBank = this.contextManager.getMemoryBank();
           if (memoryBank.length > 0) {
             const memoryInjection = this.contextRotDetector.generateMemoryInjection(memoryBank);
@@ -500,9 +500,10 @@ Make ${minSubCalls - currentSubCalls} more llm_query() calls, then call FINAL() 
         };
       }
 
-      // Check for FINAL in response text
+      // Check for FINAL in response text (fallback)
       const finalMatch = response.match(/FINAL\s*\(\s*["'`]([\s\S]*?)["'`]\s*\)/);
-      if (finalMatch) {
+      // Skip the fallback if we tried to execute code and it errored. We want the LLM to see the error.
+      if (finalMatch && (!hasCode || !executionError)) {
         if (needsMoreSubCalls) {
           // Reject and ask for more analysis
           if (this.verbose) {

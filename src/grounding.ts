@@ -95,7 +95,7 @@ export async function verifySecurityRecommendations(
 ${originalAnswer.slice(0, 6000)}
 
 Your task:
-1. **Verify ALL package versions mentioned** - Search npm/PyPI/etc to find the ACTUAL current stable versions
+1. **Verify ALL package versions mentioned** - Search npm/PyPI/pub.dev/etc to find the ACTUAL current stable versions
 2. **Check for version anomalies** - If a version seems too high (like zod@4.x when stable is 3.x), flag it
 3. **Verify CVE references** - Ensure any CVEs mentioned are real and still relevant
 4. **Add missing security advisories** - Search for recent vulnerabilities in the packages mentioned

@@ -102,6 +102,13 @@ export const ARCHITECTURE_PROMPT = `Analyze the architecture of this codebase. F
 4. Design patterns used
 5. Entry points and main application flow
 
+For Flutter/Dart projects, also analyze:
+- Widget tree composition and screen hierarchy
+- State management approach (Provider, Riverpod, BLoC, GetX, etc.)
+- Navigation and routing strategy (Navigator 2.0, GoRouter, AutoRoute, etc.)
+- Dependency injection setup
+- Repository/service layer patterns
+
 Provide a structured analysis with clear sections.`;
 
 /**
@@ -113,6 +120,13 @@ export const DEPENDENCY_PROMPT = `Analyze the dependencies in this codebase:
 3. Circular dependency risks
 4. Tightly coupled components
 5. Suggestions for decoupling
+
+For Flutter/Dart projects, also analyze:
+- pubspec.yaml dependency versions and constraints
+- Outdated or deprecated packages (check pub.dev status)
+- Platform-specific dependencies (iOS/Android only packages)
+- Dev dependencies vs runtime dependencies
+- Dart part/part of file relationships
 
 Create a dependency map and highlight any concerns.`;
 
@@ -127,6 +141,15 @@ export const SECURITY_PROMPT = `Perform a security analysis of this codebase:
 5. Common vulnerabilities (OWASP Top 10)
 6. API security patterns
 
+For Flutter/Dart projects, also check:
+- Hardcoded API keys or secrets in Dart code or config files
+- Insecure HTTP connections (missing HTTPS enforcement)
+- Insecure data storage (SharedPreferences for sensitive data vs flutter_secure_storage)
+- Certificate pinning for API calls
+- Debug mode checks and sensitive logging in release builds
+- Platform channel security (MethodChannel data validation)
+- Deep link and URL scheme handling vulnerabilities
+
 List findings by severity (Critical, High, Medium, Low).`;
 
 /**
@@ -139,6 +162,14 @@ export const PERFORMANCE_PROMPT = `Analyze performance characteristics:
 4. Caching strategies
 5. Database query patterns
 6. Bundle size considerations
+
+For Flutter/Dart projects, also analyze:
+- Unnecessary widget rebuilds (missing const constructors, improper setState usage)
+- Heavy build() methods that should be split into smaller widgets
+- Expensive operations in build methods (should be in initState/didChangeDependencies)
+- Image and asset optimization
+- Stream/Future handling (unclosed streams, missing disposal)
+- ListView.builder usage for long lists vs ListView with children
 
 Provide specific recommendations for optimization.`;
 
@@ -160,11 +191,13 @@ Prioritize suggestions by impact and effort.`;
  */
 export const SUMMARY_PROMPT = `Provide a comprehensive summary of this codebase:
 1. Purpose and main functionality
-2. Tech stack and frameworks
+2. Tech stack and frameworks (detect Flutter, Dart, state management, navigation, etc.)
 3. Key features
 4. Code organization
 5. Notable patterns or approaches
 6. Potential improvements
+
+For Flutter/Dart projects, also identify: target platforms, state management solution, navigation approach, and pubspec.yaml configuration.
 
 Keep it concise but informative.`;
 
@@ -222,8 +255,8 @@ ${query}
 ## Instructions (Write JavaScript, NOT Python!)
 1. First, explore: \`print(files.slice(0, 20))\`
 2. **Make ${recommendedCalls} await llm_query() calls** to analyze different aspects:
-   - Entry point / main app file
-   - package.json / config files
+   - Entry point / main app file (main.dart, index.ts, etc.)
+   - Config files (package.json, pubspec.yaml, etc.)
    - Core services or modules
 3. Synthesize the sub-LLM analyses into a comprehensive final answer
 4. Call FINAL("your answer") with your complete analysis

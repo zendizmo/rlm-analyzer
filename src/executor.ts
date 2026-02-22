@@ -128,9 +128,29 @@ export class RLMExecutor {
     const fileIndex = this.variables.get('file_index') as Record<string, string>;
     const files = this.variables.get('files') as string[];
 
-    // Python to JavaScript conversion
+    // 1. Python to JavaScript conversion
     let js = pythonCode;
 
+    // 2. Pre-process strings that need structural conversion
+    // Convert f-strings
+    js = js.replace(/f"([^"]*)"/g, (_, s) => '`' + s.replace(/\{([^}]+)\}/g, '${$1}') + '`');
+    js = js.replace(/f'([^']*)'/g, (_, s) => '`' + s.replace(/\{([^}]+)\}/g, '${$1}') + '`');
+
+    // Convert Python triple-quoted strings to JS template literals
+    js = js.replace(/"""([\s\S]*?)"""/g, '`$1`');
+    js = js.replace(/'''([\s\S]*?)'''/g, '`$1`');
+
+    // String containment: "x" in str -> str.includes("x")
+    js = js.replace(/(["'`][^"'`]+["'`])\s+in\s+(\w+)/g, '$2.includes($1)');
+
+    // 3. Temporarily mask all strings so regexes don't corrupt their contents
+    const maskedStrings: string[] = [];
+    js = js.replace(/`[\s\S]*?`|"[^"\\]*(?:\\.[^"\\]*)*"|'[^'\\]*(?:\\.[^'\\]*)*'/g, (m) => {
+      maskedStrings.push(m);
+      return `__MASKED_STR_${maskedStrings.length - 1}__`;
+    });
+
+    // 4. Perform dangerous regex replacements safely
     // Convert Python comments to JavaScript comments
     js = js.replace(/^(\s*)#(.*)$/gm, '$1//$2');
 
@@ -149,10 +169,6 @@ export class RLMExecutor {
       /\[\s*([^\[\]]+?)\s+for\s+(\w+)\s+in\s+([^\[\]]+?)\s*\]/g,
       '$3.map($2 => $1)'
     );
-
-    // Convert f-strings
-    js = js.replace(/f"([^"]*)"/g, (_, s) => '`' + s.replace(/\{([^}]+)\}/g, '${$1}') + '`');
-    js = js.replace(/f'([^']*)'/g, (_, s) => '`' + s.replace(/\{([^}]+)\}/g, '${$1}') + '`');
 
     // Convert for loops with tuple unpacking
     js = js.replace(
@@ -179,8 +195,6 @@ export class RLMExecutor {
     js = js.replace(/\bTrue\b/g, 'true');
     js = js.replace(/\bFalse\b/g, 'false');
     js = js.replace(/\bNone\b/g, 'null');
-    // Only convert and/or/not when clearly in boolean context (after if/while/elif or between parens)
-    // Avoid converting inside strings which would corrupt text output
     js = js.replace(/\bif\s*\(([^)]*)\band\b([^)]*)\)/g, 'if ($1&&$2)');
     js = js.replace(/\bif\s*\(([^)]*)\bor\b([^)]*)\)/g, 'if ($1||$2)');
     js = js.replace(/\bwhile\s*\(([^)]*)\band\b([^)]*)\)/g, 'while ($1&&$2)');
@@ -194,7 +208,6 @@ export class RLMExecutor {
     // Dict methods - .keys(), .values()
     js = js.replace(/(\w+)\.keys\(\)/g, 'Object.keys($1)');
     js = js.replace(/(\w+)\.values\(\)/g, 'Object.values($1)');
-    // .items() is already handled in the for loop conversion
 
     // String methods
     js = js.replace(/\.lower\(\)/g, '.toLowerCase()');
@@ -204,25 +217,18 @@ export class RLMExecutor {
     js = js.replace(/\.endswith\(/g, '.endsWith(');
     js = js.replace(/\.startswith\(/g, '.startsWith(');
 
-    // Slicing - handle both simple vars and complex accessors like dict["key"][:n]
-    // First handle complex accessor patterns (dict["key"][:n])
+    // Slicing
     js = js.replace(/(\]\s*)\[:(\d+)\]/g, '$1.slice(0, $2)');
     js = js.replace(/(\]\s*)\[(\d+):\]/g, '$1.slice($2)');
     js = js.replace(/(\]\s*)\[(-?\d+):(-?\d+)\]/g, '$1.slice($2, $3)');
-    // Then handle simple variable slicing
     js = js.replace(/(\w+)\[:(\d+)\]/g, '$1.slice(0, $2)');
     js = js.replace(/(\w+)\[(\d+):\]/g, '$1.slice($2)');
     js = js.replace(/(\w+)\[(-?\d+):(-?\d+)\]/g, '$1.slice($2, $3)');
 
-    // String containment: "x" in str -> str.includes("x")
-    js = js.replace(/"([^"]+)"\s+in\s+(\w+)/g, '$2.includes("$1")');
-    js = js.replace(/'([^']+)'\s+in\s+(\w+)/g, "$2.includes('$1')");
+    // 5. Restore masked strings
+    js = js.replace(/__MASKED_STR_(\d+)__/g, (_, i) => maskedStrings[parseInt(i)]);
 
-    // Convert Python triple-quoted strings to JS template literals
-    js = js.replace(/"""([\s\S]*?)"""/g, '`$1`');
-    js = js.replace(/'''([\s\S]*?)'''/g, '`$1`');
-
-    // Function mappings
+    // 6. Function mappings
     js = js.replace(/\bprint\(/g, '_print(');
     js = js.replace(/\bllm_query\(/g, 'await _llmQuery(');
     js = js.replace(/\bFINAL\((['"`][\s\S]*?['"`])\)/g, '_setFinal($1)');

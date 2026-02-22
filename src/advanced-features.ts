@@ -192,7 +192,7 @@ export class AdaptiveCompressor {
   private currentUsage = 0;
 
   constructor(
-    maxContextTokens = 100000, // Default for Gemini 1.5 Flash
+    maxContextTokens = 1000000, // Default for Gemini 1.5/2.0 Flash
     config: Partial<AdaptiveCompressionConfig> = {}
   ) {
     this.maxContextTokens = maxContextTokens;
@@ -283,19 +283,19 @@ export class AdaptiveCompressor {
       if (level === 'emergency') {
         // Only keep headers and critical markers
         if (trimmed.startsWith('**') || trimmed.includes('CRITICAL') ||
-            trimmed.includes('ERROR') || trimmed.includes('WARNING')) {
+          trimmed.includes('ERROR') || trimmed.includes('WARNING')) {
           importantLines.push(line);
         }
       } else if (level === 'aggressive') {
         // Keep bullets and numbered items (limited)
         if ((trimmed.startsWith('-') || trimmed.startsWith('*') || /^\d+\./.test(trimmed))
-            && importantLines.length < 20) {
+          && importantLines.length < 20) {
           importantLines.push(line);
         }
       } else {
         // Normal: keep more content
         if ((trimmed.startsWith('-') || trimmed.startsWith('*') || /^\d+\./.test(trimmed))
-            && importantLines.length < 40) {
+          && importantLines.length < 40) {
           importantLines.push(line);
         }
       }
@@ -410,7 +410,7 @@ export class ContextRotDetector {
 
     // Check for lack of specific references
     if (!response.includes('file_index') && !response.includes('llm_query') &&
-        response.length > 500 && !response.includes('FINAL')) {
+      response.length > 500 && !response.includes('FINAL')) {
       indicators.push('No code/file references in substantial response');
       rotScore += 10;
     }
@@ -542,21 +542,21 @@ export class SelectiveAttention {
 
     // Security-focused query
     if (lowerQuery.includes('security') || lowerQuery.includes('vulnerab') ||
-        lowerQuery.includes('auth') || lowerQuery.includes('injection')) {
+      lowerQuery.includes('auth') || lowerQuery.includes('injection')) {
       this.weights.issues = 2.0;
       this.weights.patterns = 0.8;
     }
 
     // Architecture-focused query
     if (lowerQuery.includes('architecture') || lowerQuery.includes('structure') ||
-        lowerQuery.includes('design') || lowerQuery.includes('pattern')) {
+      lowerQuery.includes('design') || lowerQuery.includes('pattern')) {
       this.weights.patterns = 2.0;
       this.weights.fileAnalysis = 1.2;
     }
 
     // Dependency-focused query
     if (lowerQuery.includes('depend') || lowerQuery.includes('import') ||
-        lowerQuery.includes('package') || lowerQuery.includes('module')) {
+      lowerQuery.includes('package') || lowerQuery.includes('module')) {
       this.weights.dependencies = 2.0;
     }
   }

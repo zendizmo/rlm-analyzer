@@ -148,7 +148,7 @@ export class RLMOrchestrator {
     // Initialize advanced feature components
     this.parallelExecutor = new ParallelExecutor(advancedConfig?.parallel);
     this.adaptiveCompressor = new AdaptiveCompressor(
-      advancedConfig?.maxContextTokens || 100000,
+      advancedConfig?.maxContextTokens || 1000000,
       advancedConfig?.adaptiveCompression
     );
     this.contextRotDetector = new ContextRotDetector();

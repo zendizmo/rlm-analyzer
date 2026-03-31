@@ -17,6 +17,7 @@ Analyze any codebase with AI that can process **100x beyond context limits**. Po
 - **Symbol Search** - Find all usages of functions, classes, variables
 - **Custom Questions** - Ask anything about your codebase
 - **Multi-Provider Support** - Choose between Gemini (default), Amazon Bedrock (Nova/Claude/Llama), or Claude (Anthropic API)
+- **Supply Chain Security** - Real-time CVE and malicious package detection via OSV.dev API
 - **Web Grounding** - Verify package versions with real-time web search (Gemini & Nova Premier)
 - **MCP Integration** - Works with Claude Code, Cursor, and other MCP clients
 - **Cost Efficient** - Save 60-73% on API costs by offloading to Gemini/Nova
@@ -140,6 +141,40 @@ rlm ask "How does authentication work?"
 ```
 
 ---
+
+
+### Supply Chain Scan (CVE & Malicious Package Detection)
+
+Scan your project dependencies against [OSV.dev](https://osv.dev) for known CVEs and malicious packages:
+
+```bash
+# Scan npm dependencies (auto-detects package.json)
+rlm supply-chain
+
+# Show fix versions for all vulnerable packages
+rlm supply-chain --fix
+
+# Scan a specific ecosystem
+rlm supply-chain --ecosystem pypi
+
+# Include transitive dependencies
+rlm supply-chain --deep
+```
+
+Example output:
+```
+🔍 Supply Chain Scan — my-project
+
+🚨 MALICIOUS (1)
+  axios@1.14.1 — MAL-2026-2307
+  Malicious code detected. Remove immediately. Safe version: 1.13.5
+
+⚠️  CRITICAL CVEs (0)
+✅  HIGH CVEs (0)
+
+📦 Scanned: 47 packages | Clean: 46 | At risk: 1
+Run with --fix to see remediation commands.
+```
 
 ## CLI Reference
 

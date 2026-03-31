@@ -61,6 +61,7 @@ import {
 } from './models.js';
 import type { RLMTurn, RLMProgress } from './types.js';
 import * as fs from 'fs';
+import { runSupplyChainScan } from './supply-chain.js';
 
 // ANSI colors
 const colors = {
@@ -194,6 +195,7 @@ ${colors.bold}Commands:${colors.reset}
   ${colors.green}config${colors.reset} [api-key]     Configure or show API key status
   ${colors.green}test${colors.reset}                 Test API connection and model availability
   ${colors.green}clear-cache${colors.reset}          Clear structural index cache for a directory
+  ${colors.green}supply-chain${colors.reset}         Scan dependencies for CVEs and supply chain risks
 
 ${colors.bold}Options:${colors.reset}
   --dir, -d <path>      Directory to analyze (default: current directory)
@@ -305,6 +307,9 @@ function parseArgs(args: string[]): {
     output: string | null;
     grounding: boolean;
     noCache: boolean;
+    deep: boolean;
+    fix: boolean;
+    ecosystem: 'npm' | 'pypi' | 'go';
   };
 } {
   const options = {
@@ -318,6 +323,9 @@ function parseArgs(args: string[]): {
     output: null as string | null,
     grounding: false,
     noCache: false,
+    deep: false,
+    fix: false,
+    ecosystem: 'npm' as 'npm' | 'pypi' | 'go',
   };
 
   let command = '';
@@ -375,6 +383,21 @@ function parseArgs(args: string[]): {
       options.output = arg.slice(3);
     } else if (arg === '--grounding' || arg === '-g') {
       options.grounding = true;
+    } else if (arg === '--deep') {
+      options.deep = true;
+    } else if (arg === '--fix') {
+      options.fix = true;
+    } else if (arg === '--ecosystem') {
+      i++;
+      const eco = args[i]?.toLowerCase();
+      if (eco === 'npm' || eco === 'pypi' || eco === 'go') {
+        options.ecosystem = eco;
+      }
+    } else if (arg.startsWith('--ecosystem=')) {
+      const eco = arg.slice(12).toLowerCase();
+      if (eco === 'npm' || eco === 'pypi' || eco === 'go') {
+        options.ecosystem = eco as 'npm' | 'pypi' | 'go';
+      }
     } else if (arg === '--no-cache') {
       options.noCache = true;
     } else if (!command) {
@@ -429,7 +452,7 @@ function createProgressCallback(progressTracker: ProgressTracker): (progress: RL
 async function runCommand(
   command: string,
   target: string | undefined,
-  options: { dir: string; model: string; provider: ProviderName | undefined; verbose: boolean; json: boolean; output: string | null; grounding: boolean; noCache: boolean }
+  options: { dir: string; model: string; provider: ProviderName | undefined; verbose: boolean; json: boolean; output: string | null; grounding: boolean; noCache: boolean; deep: boolean; fix: boolean; ecosystem: 'npm' | 'pypi' | 'go' }
 ): Promise<void> {
   const startTime = Date.now();
 
@@ -528,6 +551,16 @@ async function runCommand(
       }
       result = await askQuestion(options.dir, target, analysisOpts);
       break;
+
+    case 'supply-chain': {
+      progressTracker?.stop();
+      await runSupplyChainScan(options.dir, {
+        deep: options.deep,
+        fix: options.fix,
+        ecosystem: options.ecosystem,
+      });
+      return;
+    }
 
     default:
       log(`Unknown command: ${command}`, 'red');

@@ -93,6 +93,12 @@ export interface AdvancedFeaturesConfig {
   maxContextTokens?: number;
 }
 
+/**
+ * Note: The `supply-chain` command is handled directly in cli.ts via runSupplyChainScan()
+ * and does NOT go through the RLM orchestration loop. This is intentional:
+ * supply-chain scanning is deterministic (OSV API) and does not benefit from
+ * recursive LLM orchestration.
+ */
 export class RLMOrchestrator {
   private config: RLMConfig;
   private executor: RLMExecutor;

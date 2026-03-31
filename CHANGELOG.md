@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased] - 2026-03-31
+
+### Added
+- **`rlm supply-chain` command** (BZL-21): Real-time CVE and malicious package detection
+  - Scans `package.json` (npm), `requirements.txt` (PyPI), and `go.mod` (Go) dependencies
+  - Queries [OSV.dev API](https://osv.dev) for each dependency with max 10 concurrent requests
+  - Flags `MAL-*` prefixed OSV IDs as MALICIOUS (separate from CVEs) with CRITICAL severity
+  - Runs `npm audit --json` as secondary signal and merges results
+  - Outputs color-coded report: 🚨 MALICIOUS / ⚠️ CRITICAL / HIGH / MEDIUM
+  - `--fix` flag shows remediation commands for vulnerable packages
+  - `--deep` flag for transitive dependency scanning
+  - `--ecosystem <npm|pypi|go>` flag to override auto-detection
+  - New types: `SupplyChainResult`, `VulnerabilityFinding`, `SupplyChainOptions`
+  - New prompt: `SUPPLY_CHAIN_PROMPT` for AI-assisted supply chain risk assessment
+
 ## [1.6.0] - 2026-01-22
 
 ### Added

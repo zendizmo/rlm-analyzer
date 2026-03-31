@@ -383,3 +383,50 @@ export const IGNORE_DIRS = [
   '.output',
   '.cache',
 ];
+
+// ============================================================================
+// Supply Chain Scanner Types (BZL-21)
+// ============================================================================
+
+/** Severity levels for vulnerability findings */
+export type VulnerabilitySeverity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
+
+/** A single vulnerability finding for a dependency */
+export interface VulnerabilityFinding {
+  /** Package name */
+  packageName: string;
+  /** Installed version */
+  version: string;
+  /** OSV vulnerability ID (e.g., CVE-2024-1234 or MAL-2026-2307) */
+  id: string;
+  /** Severity level */
+  severity: VulnerabilitySeverity;
+  /** True if this is a malicious package (MAL-* prefix) */
+  isMalicious: boolean;
+  /** Short description of the vulnerability */
+  summary: string;
+  /** Fixed version if available */
+  fixedIn?: string;
+}
+
+/** Options for the supply-chain scan command */
+export interface SupplyChainOptions {
+  /** Include transitive dependencies */
+  deep?: boolean;
+  /** Show fix versions and remediation commands */
+  fix?: boolean;
+  /** Override ecosystem (npm/pypi/go) */
+  ecosystem?: 'npm' | 'pypi' | 'go';
+}
+
+/** Result of a full supply chain scan */
+export interface SupplyChainResult {
+  /** Project name (from package.json or directory name) */
+  projectName: string;
+  /** Total number of packages scanned */
+  scannedCount: number;
+  /** All vulnerability findings */
+  findings: VulnerabilityFinding[];
+  /** Ecosystems that were scanned */
+  ecosystems: string[];
+}

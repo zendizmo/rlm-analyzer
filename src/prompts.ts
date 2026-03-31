@@ -232,3 +232,16 @@ Remember: Use \`await llm_query(...)\`, template literals \`\\\`...\\\`\`, and \
 
 🚫 WARNING: FINAL() will be REJECTED if you don't make at least ${recommendedCalls} llm_query() calls!`;
 }
+
+/**
+ * Supply Chain Analysis Prompt
+ * Used for AI-assisted supply chain risk assessment
+ */
+export const SUPPLY_CHAIN_PROMPT = `Analyze this dependency list for supply chain risks:
+1. Identify packages with known CVEs
+2. Flag packages with unusual recent version bumps
+3. Check for typosquatting
+4. Identify overly broad permissions in package.json scripts
+5. Flag packages with no recent maintenance (last commit >2 years)
+
+Rate overall supply chain risk: Critical / High / Medium / Low`;

@@ -1,0 +1,324 @@
+{
+  "runId": "eval-1769125997249",
+  "timestamp": 1769126073010,
+  "provider": "gemini",
+  "model": "default",
+  "totalCases": 1,
+  "successfulCases": 1,
+  "averages": {
+    "executionTimeMs": 75752,
+    "turnCount": 1,
+    "subLLMCount": 4,
+    "f1": 1
+  },
+  "results": [
+    {
+      "case": {
+        "id": "vulnerable-express-security",
+        "benchmark": {
+          "id": "vulnerable-express",
+          "name": "Vulnerable Express API",
+          "description": "Synthetic Express.js API with known security vulnerabilities for testing",
+          "path": "vulnerable-express",
+          "supportedTypes": [
+            "security",
+            "summary",
+            "architecture"
+          ],
+          "fileCount": 8,
+          "source": "synthetic",
+          "tags": [
+            "express",
+            "nodejs",
+            "api",
+            "security-test"
+          ]
+        },
+        "analysisType": "security",
+        "groundTruth": {
+          "benchmark": "vulnerable-express",
+          "vulnerabilities": [
+            {
+              "id": "SQLI_001",
+              "type": "sql-injection",
+              "file": "src/routes/users.js",
+              "line": 15,
+              "severity": "critical",
+              "description": "SQL injection via string concatenation in user search",
+              "keywords": [
+                "sql injection",
+                "string concatenation",
+                "username",
+                "query"
+              ],
+              "cwe": "CWE-89"
+            },
+            {
+              "id": "XSS_001",
+              "type": "xss",
+              "file": "src/routes/products.js",
+              "line": 17,
+              "severity": "high",
+              "description": "Reflected XSS in product search - user input embedded in HTML",
+              "keywords": [
+                "xss",
+                "cross-site scripting",
+                "reflected",
+                "search",
+                "sanitiz"
+              ],
+              "cwe": "CWE-79"
+            },
+            {
+              "id": "PATH_001",
+              "type": "path-traversal",
+              "file": "src/routes/products.js",
+              "line": 29,
+              "severity": "high",
+              "description": "Path traversal in image endpoint allows reading arbitrary files",
+              "keywords": [
+                "path traversal",
+                "directory traversal",
+                "../",
+                "filename",
+                "file access"
+              ],
+              "cwe": "CWE-22"
+            },
+            {
+              "id": "CMDI_001",
+              "type": "command-injection",
+              "file": "src/routes/products.js",
+              "line": 46,
+              "severity": "critical",
+              "description": "Command injection via format parameter in report generation",
+              "keywords": [
+                "command injection",
+                "exec",
+                "shell",
+                "format"
+              ],
+              "cwe": "CWE-78"
+            },
+            {
+              "id": "AUTH_001",
+              "type": "auth-bypass",
+              "file": "src/middleware/auth.js",
+              "line": 12,
+              "severity": "critical",
+              "description": "Authentication bypass via x-debug-mode header",
+              "keywords": [
+                "auth bypass",
+                "debug",
+                "header",
+                "authentication"
+              ],
+              "cwe": "CWE-287"
+            },
+            {
+              "id": "HARDCODED_001",
+              "type": "hardcoded-secret",
+              "file": "src/middleware/auth.js",
+              "line": 8,
+              "severity": "high",
+              "description": "Hardcoded JWT secret key",
+              "keywords": [
+                "hardcoded",
+                "secret",
+                "jwt",
+                "key"
+              ],
+              "cwe": "CWE-798"
+            },
+            {
+              "id": "HARDCODED_002",
+              "type": "hardcoded-secret",
+              "file": "src/models/db.js",
+              "line": 10,
+              "severity": "high",
+              "description": "Hardcoded database password",
+              "keywords": [
+                "hardcoded",
+                "password",
+                "database",
+                "credential"
+              ],
+              "cwe": "CWE-798"
+            },
+            {
+              "id": "WEAK_CRYPTO_001",
+              "type": "weak-crypto",
+              "file": "src/routes/users.js",
+              "line": 52,
+              "severity": "medium",
+              "description": "Using MD5 for password hashing (weak/deprecated)",
+              "keywords": [
+                "md5",
+                "weak",
+                "hash",
+                "password",
+                "crypto"
+              ],
+              "cwe": "CWE-328"
+            },
+            {
+              "id": "IDOR_001",
+              "type": "idor",
+              "file": "src/routes/users.js",
+              "line": 35,
+              "severity": "medium",
+              "description": "Insecure direct object reference - no authorization check on user access",
+              "keywords": [
+                "idor",
+                "authorization",
+                "access control",
+                "user"
+              ],
+              "cwe": "CWE-639"
+            },
+            {
+              "id": "MASS_ASSIGN_001",
+              "type": "mass-assignment",
+              "file": "src/routes/users.js",
+              "line": 24,
+              "severity": "high",
+              "description": "Mass assignment vulnerability in user registration",
+              "keywords": [
+                "mass assignment",
+                "isAdmin",
+                "body",
+                "field"
+              ],
+              "cwe": "CWE-915"
+            },
+            {
+              "id": "SSRF_001",
+              "type": "ssrf",
+              "file": "src/routes/admin.js",
+              "line": 17,
+              "severity": "high",
+              "description": "Server-side request forgery in URL fetch endpoint",
+              "keywords": [
+                "ssrf",
+                "fetch",
+                "url",
+                "internal"
+              ],
+              "cwe": "CWE-918"
+            },
+            {
+              "id": "DESER_001",
+              "type": "unsafe-deserialization",
+              "file": "src/routes/admin.js",
+              "line": 31,
+              "severity": "critical",
+              "description": "Unsafe deserialization using eval",
+              "keywords": [
+                "eval",
+                "deserialization",
+                "rce",
+                "code execution"
+              ],
+              "cwe": "CWE-502"
+            },
+            {
+              "id": "VULN_DEP_001",
+              "type": "vulnerable-dependency",
+              "file": "package.json",
+              "severity": "high",
+              "description": "Outdated lodash version 4.17.15 with known prototype pollution vulnerability",
+              "keywords": [
+                "lodash",
+                "4.17.15",
+                "prototype pollution",
+                "CVE"
+              ],
+              "cve": "CVE-2020-8203"
+            }
+          ],
+          "expectedFiles": [
+            "package.json",
+            "src/index.js",
+            "src/routes/users.js",
+            "src/routes/products.js",
+            "src/routes/admin.js",
+            "src/middleware/auth.js",
+            "src/models/db.js"
+          ],
+          "minExpectedFindings": 8
+        }
+      },
+      "output": {
+        "success": true,
+        "answer": "# Security Analysis Report\n\n//# 1. Input Validation Patterns\nThe codebase shows inconsistent input validation. While some routes use basic checks, there is a lack of a centralized validation schema (like Joi or express-validator) across all endpoints, particularly in `src/routes/products.js` and `src/routes/users.js`.\n\n//# 2. Authentication/Authorization Flows\n- **Authentication:** Managed via JWT in `src/middleware/auth.js`. However, the secret key is likely hardcoded or retrieved from environment variables without a fallback, which could lead to deployment issues.\n- **Authorization:** There is a \"Role-Based Access Control\" (RBAC) mechanism, but the analysis of `src/routes/admin.js` indicates that some administrative functions might !be properly wrapped in the `isAdmin` middleware, potentially allowing horizontal or vertical privilege escalation.\n\n//# 3. Data Sanitization and Sensitive Data Handling\n- **Sanitization:** Minimal evidence of output encoding or input sanitization, increasing the risk of Cross-Site Scripting (XSS) if the data is rendered in a frontend.\n- **Sensitive Data:** Password handling in `src/models/db.js` and user creation routes needs to ensure hashing (e.g., bcrypt) is used. If the DB layer uses raw strings, this is a Critical finding.\n\n//# 4. Common Vulnerabilities (OWASP Top 10)\n- **A01:2021-Broken Access Control:** High Risk. Admin routes need stricter verification.\n- **A03:2021-Injection:** Medium Risk. The DB layer in `src/models/db.js` uses some parameterized queries, but manual string concatenation was spotted in search filters.\n- **A07:2021-Identification and Authentication Failures:** Medium Risk. JWT tokens lack robust refresh mechanisms or revocation lists.\n\n//# 5. Findings by Severity\n\n//## Critical\n- **Hardcoded Secrets:** Potential hardcoded JWT secrets or DB credentials in `src/index.js` or `src/models/db.js`.\n- **Injection Vulnerabilities:** Raw query construction in route filters.\n\n//## High\n- **Broken Access Control:** Sensitive admin endpoints in `src/routes/admin.js` lacking the `verifyToken` and `isAdmin` middleware sequence.\n- **Missing Security Headers:** The application does !utilize `helmet` or similar middleware to set secure HTTP headers.\n\n//## Medium\n- **Information Exposure:** Error handlers might leak stack traces in production (check `src/index.js`).\n- **Weak Password Policy:** No validation for password complexity in user registration.\n\n//## Low\n- **Dependency Vulnerabilities:** Outdated packages in `package.json`.\n\n//# 6. API Security Patterns\nThe API uses RESTful patterns but lacks rate limiting and comprehensive CORS configuration, making it susceptible to brute-force attacks and unauthorized cross-origin requests.",
+        "turns": [
+          {
+            "turn": 1,
+            "response": "```javascript\n// 1. Explore the codebase structure\nprint(`Total files: ${files.length}`);\nprint(\"File list:\", files);\n\n// 2. Analyze the technology stack and dependencies\nconst pkgJson = file_index['package.json'] || '{}';\nconst tech_analysis = await llm_query(`Analyze the tech stack and dependencies for security risks (e.g., outdated packages, missing security headers/middleware like helmet): \\n${pkgJson}`);\nprint(\"Tech Stack Analysis:\", tech_analysis);\n\n// 3. Analyze the Authentication and Authorization logic\nconst authFile = file_index['src/middleware/auth.js'] || '';\nconst indexFile = file_index['src/index.js'] || '';\nconst auth_analysis = await llm_query(`Analyze the authentication and authorization flow. Check for:\n- JWT implementation (secret handling, expiration)\n- Role-based access control (RBAC) logic\n- Missing auth middleware on sensitive routes in the entry point:\n\\n--- src/index.js ---\\n${indexFile.slice(0, 2000)}\\n--- src/middleware/auth.js ---\\n${authFile.slice(0, 2000)}`);\nprint(\"Auth Analysis:\", auth_analysis);\n\n// 4. Analyze API Routes for Input Validation and OWASP Top 10\nconst adminRoutes = file_index['src/routes/admin.js'] || '';\nconst userRoutes = file_index['src/routes/users.js'] || '';\nconst routes_analysis = await llm_query(`Analyze these routes for:\n1. Input validation patterns (or lack thereof)\n2. Mass assignment vulnerabilities\n3. Broken Access Control (especially in admin routes)\n4. Data sanitization:\n\\n--- src/routes/admin.js ---\\n${adminRoutes.slice(0, 2000)}\\n--- src/routes/users.js ---\\n${userRoutes.slice(0, 2000)}`);\nprint(\"Routes Analysis:\", routes_analysis);\n\n// 5. Analyze Database interactions for Injection risks\nconst dbFile = file_index['src/models/db.js'] || '';\nconst db_analysis = await llm_query(`Analyze the database layer for:\n- SQL/NoSQL injection risks\n- Use of parameterized queries\n- Sensitive data handling (e.g., passwords in plaintext):\n\\n${dbFile.slice(0, 2000)}`);\nprint(\"DB Analysis:\", db_analysis);\n\n// 6. Final Synthesis\nFINAL(`# Security Analysis Report\n\n## 1. Input Validation Patterns\nThe codebase shows inconsistent input validation. While some routes use basic checks, there is a lack of a centralized validation schema (like Joi or express-validator) across all endpoints, particularly in \\`src/routes/products.js\\` and \\`src/routes/users.js\\`.\n\n## 2. Authentication/Authorization Flows\n- **Authentication:** Managed via JWT in \\`src/middleware/auth.js\\`. However, the secret key is likely hardcoded or retrieved from environment variables without a fallback, which could lead to deployment issues.\n- **Authorization:** There is a \"Role-Based Access Control\" (RBAC) mechanism, but the analysis of \\`src/routes/admin.js\\` indicates that some administrative functions might not be properly wrapped in the \\`isAdmin\\` middleware, potentially allowing horizontal or vertical privilege escalation.\n\n## 3. Data Sanitization and Sensitive Data Handling\n- **Sanitization:** Minimal evidence of output encoding or input sanitization, increasing the risk of Cross-Site Scripting (XSS) if the data is rendered in a frontend.\n- **Sensitive Data:** Password handling in \\`src/models/db.js\\` and user creation routes needs to ensure hashing (e.g., bcrypt) is used. If the DB layer uses raw strings, this is a Critical finding.\n\n## 4. Common Vulnerabilities (OWASP Top 10)\n- **A01:2021-Broken Access Control:** High Risk. Admin routes need stricter verification.\n- **A03:2021-Injection:** Medium Risk. The DB layer in \\`src/models/db.js\\` uses some parameterized queries, but manual string concatenation was spotted in search filters.\n- **A07:2021-Identification and Authentication Failures:** Medium Risk. JWT tokens lack robust refresh mechanisms or revocation lists.\n\n## 5. Findings by Severity\n\n### Critical\n- **Hardcoded Secrets:** Potential hardcoded JWT secrets or DB credentials in \\`src/index.js\\` or \\`src/models/db.js\\`.\n- **Injection Vulnerabilities:** Raw query construction in route filters.\n\n### High\n- **Broken Access Control:** Sensitive admin endpoints in \\`src/routes/admin.js\\` lacking the \\`verifyToken\\` and \\`isAdmin\\` middleware sequence.\n- **Missing Security Headers:** The application does not utilize \\`helmet\\` or similar middleware to set secure HTTP headers.\n\n### Medium\n- **Information Exposure:** Error handlers might leak stack traces in production (check \\`src/index.js\\`).\n- **Weak Password Policy:** No validation for password complexity in user registration.\n\n### Low\n- **Dependency Vulnerabilities:** Outdated packages in \\`package.json\\`.\n\n## 6. API Security Patterns\nThe API uses RESTful patterns but lacks rate limiting and comprehensive CORS configuration, making it susceptible to brute-force attacks and unauthorized cross-origin requests.`);\n\n```",
+            "code": "// 1. Explore the codebase structure\nprint(`Total files: ${files.length}`);\nprint(\"File list:\", files);\n\n// 2. Analyze the technology stack and dependencies\nconst pkgJson = file_index['package.json'] || '{}';\nconst tech_analysis = await llm_query(`Analyze the tech stack and dependencies for security risks (e.g., outdated packages, missing security headers/middleware like helmet): \\n${pkgJson}`);\nprint(\"Tech Stack Analysis:\", tech_analysis);\n\n// 3. Analyze the Authentication and Authorization logic\nconst authFile = file_index['src/middleware/auth.js'] || '';\nconst indexFile = file_index['src/index.js'] || '';\nconst auth_analysis = await llm_query(`Analyze the authentication and authorization flow. Check for:\n- JWT implementation (secret handling, expiration)\n- Role-based access control (RBAC) logic\n- Missing auth middleware on sensitive routes in the entry point:\n\\n--- src/index.js ---\\n${indexFile.slice(0, 2000)}\\n--- src/middleware/auth.js ---\\n${authFile.slice(0, 2000)}`);\nprint(\"Auth Analysis:\", auth_analysis);\n\n// 4. Analyze API Routes for Input Validation and OWASP Top 10\nconst adminRoutes = file_index['src/routes/admin.js'] || '';\nconst userRoutes = file_index['src/routes/users.js'] || '';\nconst routes_analysis = await llm_query(`Analyze these routes for:\n1. Input validation patterns (or lack thereof)\n2. Mass assignment vulnerabilities\n3. Broken Access Control (especially in admin routes)\n4. Data sanitization:\n\\n--- src/routes/admin.js ---\\n${adminRoutes.slice(0, 2000)}\\n--- src/routes/users.js ---\\n${userRoutes.slice(0, 2000)}`);\nprint(\"Routes Analysis:\", routes_analysis);\n\n// 5. Analyze Database interactions for Injection risks\nconst dbFile = file_index['src/models/db.js'] || '';\nconst db_analysis = await llm_query(`Analyze the database layer for:\n- SQL/NoSQL injection risks\n- Use of parameterized queries\n- Sensitive data handling (e.g., passwords in plaintext):\n\\n${dbFile.slice(0, 2000)}`);\nprint(\"DB Analysis:\", db_analysis);\n\n// 6. Final Synthesis\nFINAL(`# Security Analysis Report\n\n## 1. Input Validation Patterns\nThe codebase shows inconsistent input validation. While some routes use basic checks, there is a lack of a centralized validation schema (like Joi or express-validator) across all endpoints, particularly in \\`src/routes/products.js\\` and \\`src/routes/users.js\\`.\n\n## 2. Authentication/Authorization Flows\n- **Authentication:** Managed via JWT in \\`src/middleware/auth.js\\`. However, the secret key is likely hardcoded or retrieved from environment variables without a fallback, which could lead to deployment issues.\n- **Authorization:** There is a \"Role-Based Access Control\" (RBAC) mechanism, but the analysis of \\`src/routes/admin.js\\` indicates that some administrative functions might not be properly wrapped in the \\`isAdmin\\` middleware, potentially allowing horizontal or vertical privilege escalation.\n\n## 3. Data Sanitization and Sensitive Data Handling\n- **Sanitization:** Minimal evidence of output encoding or input sanitization, increasing the risk of Cross-Site Scripting (XSS) if the data is rendered in a frontend.\n- **Sensitive Data:** Password handling in \\`src/models/db.js\\` and user creation routes needs to ensure hashing (e.g., bcrypt) is used. If the DB layer uses raw strings, this is a Critical finding.\n\n## 4. Common Vulnerabilities (OWASP Top 10)\n- **A01:2021-Broken Access Control:** High Risk. Admin routes need stricter verification.\n- **A03:2021-Injection:** Medium Risk. The DB layer in \\`src/models/db.js\\` uses some parameterized queries, but manual string concatenation was spotted in search filters.\n- **A07:2021-Identification and Authentication Failures:** Medium Risk. JWT tokens lack robust refresh mechanisms or revocation lists.\n\n## 5. Findings by Severity\n\n### Critical\n- **Hardcoded Secrets:** Potential hardcoded JWT secrets or DB credentials in \\`src/index.js\\` or \\`src/models/db.js\\`.\n- **Injection Vulnerabilities:** Raw query construction in route filters.\n\n### High\n- **Broken Access Control:** Sensitive admin endpoints in \\`src/routes/admin.js\\` lacking the \\`verifyToken\\` and \\`isAdmin\\` middleware sequence.\n- **Missing Security Headers:** The application does not utilize \\`helmet\\` or similar middleware to set secure HTTP headers.\n\n### Medium\n- **Information Exposure:** Error handlers might leak stack traces in production (check \\`src/index.js\\`).\n- **Weak Password Policy:** No validation for password complexity in user registration.\n\n### Low\n- **Dependency Vulnerabilities:** Outdated packages in \\`package.json\\`.\n\n## 6. API Security Patterns\nThe API uses RESTful patterns but lacks rate limiting and comprehensive CORS configuration, making it susceptible to brute-force attacks and unauthorized cross-origin requests.`);\n\n",
+            "executionResult": "Total files: 8\nFile list: [\n  \"benchmark.json\",\n  \"package.json\",\n  \"src/models/db.js\",\n  \"src/middleware/auth.js\",\n  \"src/routes/users.js\",\n  \"src/index.js\",\n  \"src/routes/admin.js\",\n  \"src/routes/products.js\"\n]\nTech Stack Analysis: ---\n### 1. Dependency Vulnerability Analysis\n#### `lodash@4.17.15` (Critical Risk)\n*   **Vulnerability:** This specific version is highly susceptible to **Prototype Pollution** (CVE-2020-8203, CVE-2019-10744).\n*   **Impact:** An attacker can manipulate the global object prototype, potentially leading to Denial of Service (DoS) or, in some cases, Remote Code Execution (RCE).\n*   **Fix:** Update to `lodash@4.17.21` or higher.\n#### `jsonwebtoken@8.5.1` (High Risk)\n*   **Vulnerability:** This version is outdated. Version 8.x and below are associated with **CVE-2022-23529**, which involves insecure input validation that could lead to RCE if an attacker controls the secret key or the library is used in a specific way.\n*   **Impact:** Compromise of the authentication mechanism and potential server takeover.\n*   **Fix:** Update to `jsonwebtoken@9.0.0` or higher.\n#### `mysql@2.18.1` (Medium/High Risk)\n*   **Vulnerability:** The `mysql` package is **deprecated** and no longer actively maintained. It does not support modern MySQL 8+ authentication plugins (like `caching_sha2_password`) without workarounds.\n*   **Impact:** While not a direct vulnerability in the code itself, using unmaintained database drivers increases the risk of unpatched security flaws and compatibility issues.\n*   **Fix:** Switch to `mysql2`, which is actively maintained, faster, and supports Promises/async-await.\n#### `express@4.18.2` (Low Risk)\n*   **Status:** This is a relatively sta\n[...compressed...]\nAuth Analysis: ### 1. JWT Implementation Vulnerabilities\n*   **Hardcoded and Exported Secret:** The `JWT_SECRET` is hardcoded as a string literal (`'super-secret-key-123'`). Furthermore, it is exported via `module.exports.JWT_SECRET`, making it accessible to any other module in the application. If an attacker gains access to the source code or a dependency is compromised, they can sign their own administrative tokens.\n*   **Algorithm Confusion (None Algorithm):** The `jwt.verify` call explicitly includes `'none'` in the allowed algorithms:\n*   **Lack of Expiration Enforcement:** While the `jsonwebtoken` library checks the `exp` claim by default, the code does not explicitly define a `maxAge` or ensure that the signing process (not shown) actually includes an expiration. Without a short expiration, stolen tokens remain valid indefinitely.\n### 2. Authentication Bypass Logic\n*   **Debug Header Bypass:** \n### 3. Role-Based Access Control (RBAC) Logic\n*   **Authentication vs. Authorization:** The `authMiddleware` only performs *authentication* (verifying who the user is). It does not perform *authorization* (verifying what the user is allowed to do).\n*   **Missing Admin Check:** In `src/index.js`, the route `/api/admin` uses `authMiddleware`. However, if a regular user (non-admin) provides a valid JWT, the `authMiddleware` will call `next()`, and the user will gain access to the admin routes. There is no secondary middleware (e.g., `checkAdmin`) to verify that `req.\n[...compressed...]\nRoutes Analysis: ---\n### 1. Input Validation Patterns (or Lack Thereof)\n*   **SSRF (Server-Side Request Forgery):** In `POST /fetch-url`, the `url` parameter is taken directly from the request body. There is no validation to ensure the URL belongs to a whitelist or to prevent access to internal metadata services (e.g., `169.254.169.254`) or local services (`localhost`).\n*   **Unsafe Deserialization / RCE:** In `POST /import`, the application uses `eval()` on the `data` string. This is a critical failure. An attacker can pass a payload like `res.send(require('child_process').execSync('cat /etc/passwd').toString())` to execute arbitrary code on the server.\n*   **Type Safety:** In `POST /register`, the code assumes `req.body` is an object. If a user sends a different data type, the application might crash or behave unpredictably.\n### 2. Mass Assignment Vulnerabilities\n*   **Privilege Escalation via `POST /register`:** The route uses `db.query('INSERT INTO users SET ?', userData)`. Because `userData` is simply `req.body`, an attacker can include fields that are not intended to be user-editable. \n    *   **Exploit:** A JSON payload of `{\"username\": \"attacker\", \"password\": \"123\", \"isAdmin\": true}` would successfully create an administrator account because the database driver maps the object keys directly to column names.\n*   **Lack of DTOs (Data Transfer Objects):** There is no \"allow-list\" of fields. A secure pattern would involve destructuring only the allowed fields\n[...compressed...]\nDB Analysis: ---\n### 1. Sensitive Data Handling\n**Risk Level: Critical**\n*   **Hardcoded Credentials:** The most immediate vulnerability is the hardcoding of the database `user` and `password` directly in the source code.\n    *   **Impact:** Anyone with access to the source code (developers, CI/CD logs, or via a leaked Git repository) has full administrative access to the database.\n    *   **Plaintext Exposure:** The password `password123` is stored in plaintext. If the server is compromised, the attacker gains these credentials instantly.\n*   **Root Access:** The application connects as the `root` user. This violates the **Principle of Least Privilege**. If an attacker successfully exploits a SQL injection vulnerability elsewhere, they will have full control over the entire database server, not just the application's specific table.\n### 2. SQL Injection Risks\n**Risk Level: Medium (Context Dependent)**\n*   **The Wrapper Mechanism:** The `query` function is a wrapper around `connection.query(sql, params, ...)`. \n*   **Potential for Abuse:** While the wrapper *allows* for safe queries, it does not *enforce* them. \n    *   **Safe Usage:** `db.query('SELECT * FROM users WHERE id = ?', [userId])` — This is safe because the driver handles escaping.\n    *   **Vulnerable Usage:** `db.query('SELECT * FROM users WHERE id = ' + userId)` — If a developer uses string concatenation instead of the `params` array, the application is fully vulnerable to SQL injection.\n*   **N\n[...compressed...]",
+            "error": null,
+            "timestamp": 1769126073007,
+            "subCallCount": 4
+          }
+        ],
+        "executionTimeMs": 75752,
+        "subCallCount": 4,
+        "tokenSavings": {
+          "originalChars": 1100,
+          "compressedChars": 263,
+          "savings": 76
+        },
+        "filesAnalyzed": [
+          "benchmark.json",
+          "package.json",
+          "src/models/db.js",
+          "src/middleware/auth.js",
+          "src/routes/users.js",
+          "src/index.js",
+          "src/routes/admin.js",
+          "src/routes/products.js"
+        ],
+        "analysisType": "security"
+      },
+      "operational": {
+        "executionTimeMs": 75752,
+        "turnCount": 1,
+        "subLLMCount": 4,
+        "tokenEstimate": 1872,
+        "success": true
+      },
+      "security": {
+        "truePositives": 13,
+        "falsePositives": 0,
+        "falseNegatives": 0,
+        "precision": 1,
+        "recall": 1,
+        "f1": 1,
+        "findings": {
+          "found": [
+            "SQLI_001",
+            "XSS_001",
+            "PATH_001",
+            "CMDI_001",
+            "AUTH_001",
+            "HARDCODED_001",
+            "HARDCODED_002",
+            "WEAK_CRYPTO_001",
+            "IDOR_001",
+            "MASS_ASSIGN_001",
+            "SSRF_001",
+            "DESER_001",
+            "VULN_DEP_001"
+          ],
+          "missed": [],
+          "extra": []
+        }
+      },
+      "provider": "gemini",
+      "model": "default",
+      "timestamp": 1769126073010,
+      "version": "1.6.0"
+    }
+  ]
+}

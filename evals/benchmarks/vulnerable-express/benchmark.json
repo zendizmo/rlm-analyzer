@@ -1,0 +1,10 @@
+{
+  "id": "vulnerable-express",
+  "name": "Vulnerable Express API",
+  "description": "Synthetic Express.js API with known security vulnerabilities for testing",
+  "path": "vulnerable-express",
+  "supportedTypes": ["security", "summary", "architecture"],
+  "fileCount": 8,
+  "source": "synthetic",
+  "tags": ["express", "nodejs", "api", "security-test"]
+}

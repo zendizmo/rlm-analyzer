@@ -47,7 +47,13 @@
     "dev": "tsc --watch",
     "start": "node dist/cli.js",
     "test": "node --test",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "eval": "npx tsx evals/cli.ts run",
+    "eval:list": "npx tsx evals/cli.ts list",
+    "eval:security": "npx tsx evals/cli.ts run -t security",
+    "eval:compare": "npx tsx evals/cli.ts run --compare",
+    "eval:report": "npx tsx evals/cli.ts report",
+    "eval:results": "npx tsx evals/cli.ts results"
   },
   "keywords": [
     "ai",

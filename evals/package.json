@@ -1,0 +1,29 @@
+{
+  "name": "@rlm-analyzer/evals",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Evaluation framework for RLM Analyzer",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "run": "tsx cli.ts run",
+    "run:all": "./scripts/run-all.sh",
+    "run:security": "tsx cli.ts run -t security",
+    "run:quick": "./scripts/quick-test.sh",
+    "compare": "./scripts/compare-providers.sh",
+    "ci": "./scripts/ci-eval.sh",
+    "list": "tsx cli.ts list",
+    "results": "tsx cli.ts results",
+    "report": "tsx cli.ts report",
+    "summary": "./scripts/summary-report.sh",
+    "add-benchmark": "./scripts/add-benchmark.sh",
+    "clean": "rm -rf dist results/*.json"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "tsx": "^4.0.0"
+  }
+}

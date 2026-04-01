@@ -1,0 +1,144 @@
+{
+  "benchmark": "vulnerable-express",
+  "vulnerabilities": [
+    {
+      "id": "SQLI_001",
+      "type": "sql-injection",
+      "file": "src/routes/users.js",
+      "line": 15,
+      "severity": "critical",
+      "description": "SQL injection via string concatenation in user search",
+      "keywords": ["sql injection", "string concatenation", "username", "query"],
+      "cwe": "CWE-89"
+    },
+    {
+      "id": "XSS_001",
+      "type": "xss",
+      "file": "src/routes/products.js",
+      "line": 17,
+      "severity": "high",
+      "description": "Reflected XSS in product search - user input embedded in HTML",
+      "keywords": ["xss", "cross-site scripting", "reflected", "search", "sanitiz"],
+      "cwe": "CWE-79"
+    },
+    {
+      "id": "PATH_001",
+      "type": "path-traversal",
+      "file": "src/routes/products.js",
+      "line": 29,
+      "severity": "high",
+      "description": "Path traversal in image endpoint allows reading arbitrary files",
+      "keywords": ["path traversal", "directory traversal", "../", "filename", "file access"],
+      "cwe": "CWE-22"
+    },
+    {
+      "id": "CMDI_001",
+      "type": "command-injection",
+      "file": "src/routes/products.js",
+      "line": 46,
+      "severity": "critical",
+      "description": "Command injection via format parameter in report generation",
+      "keywords": ["command injection", "exec", "shell", "format"],
+      "cwe": "CWE-78"
+    },
+    {
+      "id": "AUTH_001",
+      "type": "auth-bypass",
+      "file": "src/middleware/auth.js",
+      "line": 12,
+      "severity": "critical",
+      "description": "Authentication bypass via x-debug-mode header",
+      "keywords": ["auth bypass", "debug", "header", "authentication"],
+      "cwe": "CWE-287"
+    },
+    {
+      "id": "HARDCODED_001",
+      "type": "hardcoded-secret",
+      "file": "src/middleware/auth.js",
+      "line": 8,
+      "severity": "high",
+      "description": "Hardcoded JWT secret key",
+      "keywords": ["hardcoded", "secret", "jwt", "key"],
+      "cwe": "CWE-798"
+    },
+    {
+      "id": "HARDCODED_002",
+      "type": "hardcoded-secret",
+      "file": "src/models/db.js",
+      "line": 10,
+      "severity": "high",
+      "description": "Hardcoded database password",
+      "keywords": ["hardcoded", "password", "database", "credential"],
+      "cwe": "CWE-798"
+    },
+    {
+      "id": "WEAK_CRYPTO_001",
+      "type": "weak-crypto",
+      "file": "src/routes/users.js",
+      "line": 52,
+      "severity": "medium",
+      "description": "Using MD5 for password hashing (weak/deprecated)",
+      "keywords": ["md5", "weak", "hash", "password", "crypto"],
+      "cwe": "CWE-328"
+    },
+    {
+      "id": "IDOR_001",
+      "type": "idor",
+      "file": "src/routes/users.js",
+      "line": 35,
+      "severity": "medium",
+      "description": "Insecure direct object reference - no authorization check on user access",
+      "keywords": ["idor", "authorization", "access control", "user"],
+      "cwe": "CWE-639"
+    },
+    {
+      "id": "MASS_ASSIGN_001",
+      "type": "mass-assignment",
+      "file": "src/routes/users.js",
+      "line": 24,
+      "severity": "high",
+      "description": "Mass assignment vulnerability in user registration",
+      "keywords": ["mass assignment", "isAdmin", "body", "field"],
+      "cwe": "CWE-915"
+    },
+    {
+      "id": "SSRF_001",
+      "type": "ssrf",
+      "file": "src/routes/admin.js",
+      "line": 17,
+      "severity": "high",
+      "description": "Server-side request forgery in URL fetch endpoint",
+      "keywords": ["ssrf", "fetch", "url", "internal"],
+      "cwe": "CWE-918"
+    },
+    {
+      "id": "DESER_001",
+      "type": "unsafe-deserialization",
+      "file": "src/routes/admin.js",
+      "line": 31,
+      "severity": "critical",
+      "description": "Unsafe deserialization using eval",
+      "keywords": ["eval", "deserialization", "rce", "code execution"],
+      "cwe": "CWE-502"
+    },
+    {
+      "id": "VULN_DEP_001",
+      "type": "vulnerable-dependency",
+      "file": "package.json",
+      "severity": "high",
+      "description": "Outdated lodash version 4.17.15 with known prototype pollution vulnerability",
+      "keywords": ["lodash", "4.17.15", "prototype pollution", "CVE"],
+      "cve": "CVE-2020-8203"
+    }
+  ],
+  "expectedFiles": [
+    "package.json",
+    "src/index.js",
+    "src/routes/users.js",
+    "src/routes/products.js",
+    "src/routes/admin.js",
+    "src/middleware/auth.js",
+    "src/models/db.js"
+  ],
+  "minExpectedFindings": 8
+}

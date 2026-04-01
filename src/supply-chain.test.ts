@@ -9,7 +9,7 @@ import * as os from 'os';
 import * as path from 'path';
 
 // Dynamically import to handle ES modules
-const { runSupplyChainScan } = await import('./supply-chain.js');
+const { runSupplyChainScan } = await import('../dist/supply-chain.js');
 
 // ------------------------------------------------------------------
 // Test 1: OSV returns findings for a known vulnerable package
